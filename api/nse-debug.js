@@ -8,6 +8,6 @@ export default async function handler(req,res){
     const url="https://www.nseindia.com/api/integrated-filing-results?symbol="+encodeURIComponent(symbol)+"&type=Integrated%20Filing-%20Financials&page=1&size=5";
     const r=await fetch(url,{headers:{...headers,...(cookie?{Cookie:cookie}:{})}});
     const text=await r.text();
-    res.status(200).json({home:home.status,nse:r.status,length:text.length,sample:text.slice(0,2000)});
+    const payload=JSON.parse(text); const filing=payload?.data?.find(x=>x?.consolidated==="Standalone")||payload?.data?.[0]; const ix=filing?.ixbrl; let xr=null; if(ix){const rr=await fetch(ix,{headers}); const tt=await rr.text(); xr={status:rr.status,length:tt.length,sample:tt.slice(0,120)};} res.status(200).json({home:home.status,nse:r.status,length:text.length,filing,ix:xr});
   }catch(e){res.status(200).json({error:String(e?.stack||e)})}
 }
