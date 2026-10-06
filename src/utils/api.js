@@ -46,16 +46,58 @@ export async function getQuote(symbol){
   };
 }
 
+function rawValue(node){
+  const v=node?.raw;
+  return Number.isFinite(v)?v:null;
+}
+
+function pctValue(node){
+  const v=rawValue(node);
+  return Number.isFinite(v)?v*100:null;
+}
+
 export async function getFundamentals(symbol){
-  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
-  const q=json?.quoteResponse?.result?.[0];
-  if(!q) return {pe:null,mcap:null,beta:null,div:null,pm:null};
+  const quoteJson=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
+  const q=quoteJson?.quoteResponse?.result?.[0]||{};
+  let summary=null;
+  try{
+    const url="https://query1.finance.yahoo.com/v10/finance/quoteSummary/"+encodeURIComponent(symbol)+"?modules=summaryDetail,defaultKeyStatistics,financialData,incomeStatementHistory,balanceSheetHistory,cashflowStatementHistory";
+    const json=await fetchYahoo(url);
+    summary=json?.quoteSummary?.result?.[0]||null;
+  }catch{}
+
+  const sd=summary?.summaryDetail||{};
+  const ks=summary?.defaultKeyStatistics||{};
+  const fd=summary?.financialData||{};
+  const income=summary?.incomeStatementHistory?.incomeStatementHistory?.[0]||{};
+  const balance=summary?.balanceSheetHistory?.balanceSheetStatements?.[0]||{};
+  const cash=summary?.cashflowStatementHistory?.cashflowStatements?.[0]||{};
+
   return {
-    pe:Number.isFinite(q.trailingPE)?q.trailingPE:null,
-    mcap:Number.isFinite(q.marketCap)?q.marketCap:null,
-    beta:Number.isFinite(q.beta)?q.beta:null,
-    div:Number.isFinite(q.dividendYield)?q.dividendYield*100:null,
-    pm:Number.isFinite(q.profitMargins)?q.profitMargins*100:null
+    pe:Number.isFinite(q.trailingPE)?q.trailingPE:rawValue(sd.trailingPE),
+    mcap:Number.isFinite(q.marketCap)?q.marketCap:rawValue(sd.marketCap),
+    beta:Number.isFinite(q.beta)?q.beta:rawValue(sd.beta),
+    div:Number.isFinite(q.dividendYield)?q.dividendYield*100:pctValue(sd.dividendYield),
+    pm:Number.isFinite(q.profitMargins)?q.profitMargins*100:pctValue(fd.profitMargins),
+    roe:pctValue(fd.returnOnEquity),
+    roa:pctValue(fd.returnOnAssets),
+    roce:null,
+    debtEquity:rawValue(fd.debtToEquity),
+    currentRatio:rawValue(fd.currentRatio),
+    revenueGrowth:pctValue(fd.revenueGrowth),
+    earningsGrowth:pctValue(fd.earningsGrowth),
+    grossMargin:pctValue(fd.grossMargins),
+    operatingMargin:pctValue(fd.operatingMargins),
+    ebitda:rawValue(fd.ebitda),
+    totalRevenue:rawValue(fd.totalRevenue)||rawValue(income.totalRevenue),
+    netIncome:rawValue(fd.netIncomeToCommon)||rawValue(income.netIncome),
+    eps:Number.isFinite(q.epsTrailingTwelveMonths)?q.epsTrailingTwelveMonths:rawValue(ks.trailingEps),
+    bookValue:rawValue(ks.bookValue),
+    enterpriseValue:rawValue(ks.enterpriseValue),
+    freeCashFlow:rawValue(fd.freeCashflow)||rawValue(cash.totalCashFromOperatingActivities),
+    totalDebt:rawValue(fd.totalDebt)||rawValue(balance.totalDebt),
+    cashTotal:rawValue(fd.totalCash)||rawValue(balance.cash),
+    source:"Yahoo Finance / company-reported financial data"
   };
 }
 
