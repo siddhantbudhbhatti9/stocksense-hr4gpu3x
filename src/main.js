@@ -16,7 +16,7 @@ function capFromMeta(symbol){
   return STOCK_META.get(base+".NS")?.cap?.[0] || null;
 }
 function capBadge(cap){
-  if(!cap) return '<span style="font-size:8px;color:#7C8DB0;border:1px solid #2a3d5f;border-radius:5px;padding:2px 4px">—</span>';
+  if(!cap) return '';
   const label=cap==="L"?"L":cap==="M"?"M":"S";
   return '<span title="'+(cap==="L"?"Large Cap":cap==="M"?"Mid Cap":"Small Cap")+'" style="font-size:8px;font-weight:800;color:white;background:'+(cap==="L"?"#14532d":cap==="M"?"#164e63":"#713f12")+';border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 5px">'+label+"</span>";
 }
