@@ -205,7 +205,7 @@ async function loadStock(symbol){
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
     const ai=getAISignal(data.rsi,data.sma20,data.sma50);setText("aiSignal",ai.t);setText("aiDesc",ai.t);setText("t_signal",ai.t);document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;
     renderChart(data);
-    const news=await getNews(symbol);renderNews(news);
+    try{ const news=await getNews(symbol); renderNews(news); }catch{ renderNews([]); }
   }catch(error){
     setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";renderChart(null);console.warn("[StockSense]",error);
   }
