@@ -11,13 +11,26 @@ async function fetchYahoo(url){
   return null;
 }
 async function getQuote(sym){
-  let j=await fetchYahoo(YAHOO_CHART+sym+"?interval=1d&range=3mo");
-  if(!j||!j.chart||!j.chart.result){
-    let base=800+Math.random()*1200; let closes=Array.from({length:60},()=>base+(Math.random()-0.5)*30);
-    return {price:closes[closes.length-1], prev:closes[closes.length-2], closes:closes, high:base+15, low:base-15, vol:8500000};
+  const j=await fetchYahoo(YAHOO_CHART+encodeURIComponent(sym)+"?interval=1d&range=3mo");
+  const result=j?.chart?.result?.[0];
+  const closes=(result?.indicators?.quote?.[0]?.close||[]).filter(x=>Number.isFinite(x));
+  if(!result||closes.length<2){
+    throw new Error("Live market data unavailable for "+sym);
   }
-  let res=j.chart.result[0]; let closes=res.indicators.quote[0].close.filter(x=>x!=null);
-  return {price:res.meta.regularMarketPrice||closes[closes.length-1], prev:res.meta.previousClose||closes[closes.length-2], closes:closes, high:res.meta.regularMarketDayHigh||Math.max(...closes), low:res.meta.regularMarketDayLow||Math.min(...closes), vol:res.meta.regularMarketVolume||5000000};
+  const meta=result.meta||{};
+  const price=Number.isFinite(meta.regularMarketPrice)?meta.regularMarketPrice:closes[closes.length-1];
+  const prev=Number.isFinite(meta.previousClose)?meta.previousClose:closes[closes.length-2];
+  if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0){
+    throw new Error("Incomplete live market data for "+sym);
+  }
+  return {
+    price,
+    prev,
+    closes,
+    high:Number.isFinite(meta.regularMarketDayHigh)?meta.regularMarketDayHigh:Math.max(...closes),
+    low:Number.isFinite(meta.regularMarketDayLow)?meta.regularMarketDayLow:Math.min(...closes),
+    vol:Number.isFinite(meta.regularMarketVolume)?meta.regularMarketVolume:null
+  };
 }
 function calcRSI(c){ if(c.length<15) return 50; let g=0,l=0; for(let i=c.length-14;i<c.length;i++){let d=c[i]-c[i-1]; if(d>0) g+=d; else l-=d;} return 100-100/(1+g/(l||1)); }
 function calcSMA(c,p){ if(c.length<p) return c[c.length-1]; let s=0; for(let i=c.length-p;i<c.length;i++) s+=c[i]; return s/p; }
@@ -102,7 +115,8 @@ function ensureUI(){
 var currentSymbol='SBIN.NS';
 async function loadStock(symbol){
   currentSymbol=symbol;
-  let data = await fetchLiveData(symbol);
+  try{
+    let data = await fetchLiveData(symbol);
   document.getElementById('stockName').textContent=data.symbol+' • NSE • '+new Date().toLocaleTimeString();
   document.getElementById('stockPrice').textContent='₹'+data.price;
   let chEl=document.getElementById('change'); chEl.textContent=(parseFloat(data.change)>=0?'+':'')+data.change+' ('+data.changePct+'%)'; chEl.style.background=parseFloat(data.change)>=0?'rgba(0,255,136,0.15)':'rgba(255,68,68,0.15)'; chEl.style.color=parseFloat(data.change)>=0?'#00ff88':'#ff4444';
@@ -113,6 +127,18 @@ async function loadStock(symbol){
   document.getElementById('t_rsi').textContent=data.rsi.toFixed(1); document.getElementById('t_sma20').textContent='₹'+data.sma20.toFixed(0); document.getElementById('t_sma50').textContent='₹'+data.sma50.toFixed(0); document.getElementById('t_sma200').textContent='₹'+data.sma200.toFixed(0);
   let ai=getAISignal(data.rsi,data.sma20,data.sma50); document.getElementById('aiSignal').textContent=ai.t; document.getElementById('aiSignal').style.color=ai.c; document.getElementById('t_signal').textContent=ai.t; document.getElementById('t_signal').style.color=ai.c; document.getElementById('aiDesc').textContent=ai.t;
   document.getElementById('newsBox').innerHTML=`<div style="padding:6px;background:#0e1429;border-radius:6px;margin:4px 0">• ${data.symbol} at ₹${data.price} — ${ai.t} — RSI ${data.rsi.toFixed(1)}</div><div style="padding:6px;background:#0e1429;border-radius:6px;margin:4px 0">• 52W ₹${data.low52} - ₹${data.high52} — Year ${data.yearChange}%</div>`;
+  }catch(error){
+    const msg=error?.message||"Live market data is temporarily unavailable.";
+    document.getElementById('stockPrice').textContent="₹--";
+    document.getElementById('change').textContent="DATA UNAVAILABLE";
+    document.getElementById('change').style.background="rgba(255,204,0,0.12)";
+    document.getElementById('change').style.color="#ffcc00";
+    document.getElementById('aiSignal').textContent="UNAVAILABLE";
+    document.getElementById('aiSignal').style.color="#ffcc00";
+    document.getElementById('aiDesc').textContent="No live quote received";
+    document.getElementById('newsBox').innerHTML=`<div style="padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00">Live market data is unavailable right now. No estimated or fabricated price is shown.</div>`;
+    console.warn("[StockSense] "+msg);
+  }
 }
 var watchlistSyms=['RELIANCE.NS','TCS.NS','INFY.NS','HDFCBANK.NS','ICICIBANK.NS','SBIN.NS','BHARTIARTL.NS','ITC.NS','BSE.NS','RVNL.NS'];
 async function loadWatchlist(){
