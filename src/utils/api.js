@@ -99,7 +99,14 @@ async function getValuationTimeseries(symbol){
 function latestTimeseriesNumber(results, keys){
   for(const key of keys){
     const row=results.find(x=>Array.isArray(x?.[key])&&x[key].length);
-    const item=row?.[key]?.[row[key].length-1];export async function getFundamentals(symbol){
+    const item=row?.[key]?.[row[key].length-1];
+    const value=rawValue(item?.reportedValue);
+    if(Number.isFinite(value)) return {value,date:item?.asOfDate||null};
+  }
+  return {value:null,date:null};
+}
+
+export async function getFundamentals(symbol){
   const [quoteJson, annual, quarterly, valuation] = await Promise.all([
     fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol)),
     getFundamentalsTimeseries(symbol,"annual"),
