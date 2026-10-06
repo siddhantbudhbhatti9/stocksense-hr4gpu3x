@@ -79,6 +79,7 @@ function installDesignSystem(){
         #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
      .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
+    .ss-index-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.ss-index-card{background:#0e1429;border:1px solid rgba(91,121,180,.14);border-radius:9px;padding:8px;display:flex;justify-content:space-between;align-items:center;min-height:52px}.ss-index-name{font-size:9px;color:#a9b9d6;line-height:12px}.ss-index-price{font-size:11px;font-weight:800;margin-top:2px}.ss-index-change{font-size:9px;font-weight:800;margin-left:6px}@media(max-width:520px){.ss-index-grid{grid-template-columns:1fr}}
     .ss-analysis{margin-top:12px;display:grid;grid-template-columns:1.15fr .85fr;gap:10px}
     .ss-analysis-card{background:linear-gradient(180deg,rgba(9,16,34,.96),rgba(6,11,24,.96));border:1px solid rgba(91,121,180,.18);border-radius:12px;padding:12px}
     .ss-analysis-title{font-size:9px;color:#7890b8;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
@@ -343,39 +344,21 @@ function renderFinancials(fund){
     setText("aiSignal",ai.t);setText("aiDesc",ai.t==="STRONG BUY"?"Oversold conditions with positive momentum":ai.t==="BUY"?"Momentum and short-term trend align":"Technical conditions do not show a strong buy setup");setText("t_signal",ai.t);
     setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.t==="STRONG BUY"?"Oversold conditions detected":ai.t==="BUY"?"Short-term trend supports the signal":ai.t==="STRONG SELL"?"Overbought conditions detected":"Wait for stronger confirmation");
     document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
-    renderChart(data);
     try{ const news=await getNews(symbol); renderNews(news); }catch{ renderNews([]); }
   }catch(error){
-    setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";renderChart(null);console.warn("[StockSense]",error);
+    setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";console.warn("[StockSense]",error);
   }
-}
-function renderChart(data){
-  const container=document.getElementById("chart");
-  chartSourceData=data;
-  if(chartResizeObserver){try{chartResizeObserver.disconnect();}catch{}chartResizeObserver=null;}
-  container.innerHTML="";
-  if(currentChart){try{currentChart.remove();}catch{}currentChart=null;}
-  const toolbar=document.getElementById("chartToolbar");
-  if(toolbar){
-    toolbar.querySelectorAll("[data-range]").forEach(btn=>{btn.style.background=btn.dataset.range===chartRange?"#00d4ff":"#0e1429";btn.style.color=btn.dataset.range===chartRange?"#070d2b":"#7C8DB0";btn.onclick=()=>{chartRange=btn.dataset.range;renderChart(chartSourceData);};});
-  }
-  if(!data){container.innerHTML="<div style='height:100%;display:flex;align-items:center;justify-content:center;color:#ffcc00;font-size:11px'>Chart unavailable — closing-price history could not be loaded.</div>";return;}
-  const cutoffDays={ "1M":31, "3M":93, "6M":186, "1Y":370 }[chartRange]||370;
-  const cutoff=Math.floor(Date.now()/1000)-cutoffDays*86400;
-  currentChart=createChart(container,{width:container.clientWidth,height:360,layout:{background:{color:"#070d2b"},textColor:"#7C8DB0"},grid:{vertLines:{color:"#17254a"},horzLines:{color:"#17254a"}},rightPriceScale:{borderColor:"#1e2d5a"},timeScale:{borderColor:"#1e2d5a",timeVisible:true}});
-  const candles=[];data.timestamps.forEach((ts,i)=>{const o=data.opens[i],h=data.highs[i],l=data.lows[i],cl=data.closes[i];if(ts>=cutoff&&[o,h,l,cl].every(Number.isFinite))candles.push({time:ts,open:o,high:h,low:l,close:cl});});
-  if(!candles.length){container.innerHTML="<div style='height:100%;display:flex;align-items:center;justify-content:center;color:#7C8DB0;font-size:11px'>No closing-price history for this range.</div>";return;}
-  const series=currentChart.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",borderVisible:false,wickUpColor:"#22c55e",wickDownColor:"#ef4444"});series.setData(candles);
-  const vol=currentChart.addSeries(HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:""});vol.priceScale().applyOptions({scaleMargins:{top:.8,bottom:0}});
-  const volumes=data.timestamps.map((ts,i)=>({ts,value:Number(data.volumes[i])||0})).filter(x=>x.ts>=cutoff);
-  vol.setData(volumes.map(x=>({time:x.ts,value:x.value})));
-  currentChart.timeScale().fitContent();
-  chartResizeObserver=new ResizeObserver(()=>{if(currentChart)currentChart.applyOptions({width:Math.max(320,container.clientWidth)});});chartResizeObserver.observe(container);
 }
 async function loadIndices(){
-  const syms=[["^NSEI","NIFTY 50"],["^NSEBANK","BANK NIFTY"],["^BSESN","SENSEX"],["^CNXIT","NIFTY IT"]];
+  const syms=[
+    ["^NSEI","NIFTY 50"],["^CNX100","NIFTY 100"],["^CNX500","NIFTY 500"],["NIFTYMIDCAP150.NS","NIFTY Midcap 150"],
+    ["^NSEBANK","NIFTY Bank"],["^CNXFIN","NIFTY Financial Services"],["^CNXIT","NIFTY IT"],["^CNXAUTO","NIFTY Auto"],
+    ["^CNXPHARMA","NIFTY Pharma"],["^CNXFMCG","NIFTY FMCG"],["^CNXMETAL","NIFTY Metal"],["^CNXREALTY","NIFTY Realty"],
+    ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
+    ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
+  ];
   const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
-  document.getElementById("indices").innerHTML=values.map(x=>x.q?'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1a274a"><div><div style="font-size:11px;font-weight:600">'+x.n+'</div><div style="font-size:9px;color:#7C8DB0">LAST CLOSE</div></div><div style="text-align:right"><div style="font-size:11px;font-weight:700">'+x.q.price.toFixed(2)+'</div><div style="font-size:9px;color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div></div>':'<div style="padding:10px 0;border-bottom:1px solid #1a274a"><div style="font-size:11px;font-weight:600">'+x.n+'</div><div style="font-size:9px;color:#ffcc00">Market data unavailable</div></div>').join("")+'<div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">IST '+new Date().toLocaleTimeString("en-IN")+'</div>';
+  document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
 }
 function calcRSIForScreen(c){
   if(!Array.isArray(c)||c.length<15)return 50;
