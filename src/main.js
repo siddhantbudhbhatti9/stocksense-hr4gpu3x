@@ -1,4 +1,4 @@
-import { getQuote, getStockData, getNews, getAISignal, formatCompactNumber, classifyMarketCap } from "./utils/api.js";
+import { getQuote, getStockData, getNews, getAISignal, formatCompactNumber, classifyMarketCap, searchSymbols, getMarketCap } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
 import { createChart, CandlestickSeries, HistogramSeries } from "lightweight-charts";
 
@@ -8,6 +8,8 @@ const DEFAULT_WATCHLIST=defaultWatchlist.map(s=>({...s}));
 const WATCHLIST_KEY="ss_watchlists_v2";
 const ACTIVE_KEY="ss_active_watchlist_v2";
 const SORT_KEY="ss_watchlist_sort_v2";
+let chartResizeObserver=null;
+let stockRequestId=0;
 
 function capFromMeta(symbol){
   const base=symbol.replace(/\.(NS|BO)$/,"");
@@ -19,11 +21,21 @@ function capBadge(cap){
   return '<span title="'+(cap==="L"?"Large Cap":cap==="M"?"Mid Cap":"Small Cap")+'" style="font-size:8px;font-weight:800;color:white;background:'+(cap==="L"?"#14532d":cap==="M"?"#164e63":"#713f12")+';border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 5px">'+label+"</span>";
 }
 function loadWatchlists(){
+  const initial={Default:DEFAULT_WATCHLIST.map(s=>({...s})),List1:[],List2:[]};
   try{
     const saved=JSON.parse(localStorage.getItem(WATCHLIST_KEY)||"null");
-    if(saved && saved.Default) return saved;
+    if(saved && typeof saved==="object"){
+      const cleaned={Default:initial.Default,List1:Array.isArray(saved.List1)?saved.List1:[],List2:Array.isArray(saved.List2)?saved.List2:[]};
+      const valid=Array.isArray(saved.Default)&&saved.Default.length===DEFAULT_WATCHLIST.length&&DEFAULT_WATCHLIST.every(s=>saved.Default.some(x=>x?.symbol===s.symbol));
+      if(valid) cleaned.Default=saved.Default;
+      localStorage.setItem(WATCHLIST_KEY,JSON.stringify(cleaned));
+      localStorage.removeItem("ss_custom_lists_v2");
+      localStorage.removeItem("ss_active_list_v2");
+      return cleaned;
+    }
   }catch{}
-  const initial={Default:DEFAULT_WATCHLIST,List1:[],List2:[]};
+  localStorage.removeItem("ss_custom_lists_v2");
+  localStorage.removeItem("ss_active_list_v2");
   localStorage.setItem(WATCHLIST_KEY,JSON.stringify(initial));
   return initial;
 }
@@ -115,8 +127,8 @@ async function renderWatchlist(){
   const live=[];
   await Promise.all(list.map(async(s,i)=>{
     try{
-      const q=await getQuote(s.symbol);
-      live[i]={...s,price:q.price,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100};
+      const [q,mc]=await Promise.all([getQuote(s.symbol),getMarketCap(s.symbol)]);
+      live[i]={...s,cap:s.cap||mc.cap,price:q.price,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100};
     }catch{
       live[i]={...s,price:null,change:null,changePct:null};
     }
@@ -154,13 +166,18 @@ function removeFromWatchlist(symbol){
 }
 function setupSearch(){
   const input=document.getElementById("searchAll"), results=document.getElementById("searchResults");
+  let timer=0,seq=0;
   input.addEventListener("input",()=>{
-    const q=input.value.trim().toUpperCase();
+    const q=input.value.trim().toUpperCase(); clearTimeout(timer); const my=++seq;
     if(!q){results.style.display="none";return;}
-    const matches=nseSearchUniverse.filter(s=>s.symbol.includes(q)||s.display.includes(q)||s.name.toUpperCase().includes(q)).slice(0,12);
-    results.innerHTML=matches.length?matches.map(s=>`<div data-s="${s.symbol}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${s.display}</b> ${capBadge(s.cap?.[0])}</span><span style="color:#00d4ff;font-size:10px">${s.symbol}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No local match. Enter a Yahoo symbol such as ABC.NS or ABC.BO.</div>";
-    results.style.display="block";
-    results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});
+    const local=nseSearchUniverse.filter(s=>s.symbol.includes(q)||s.display.includes(q)||s.name.toUpperCase().includes(q)).slice(0,12);
+    const draw=matches=>{
+      results.innerHTML=matches.length?matches.map(s=>`<div data-s="${s.symbol}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${s.display}</b> ${capBadge(s.cap?.[0]||"")}</span><span style="color:#00d4ff;font-size:10px">${s.symbol}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching NSE/BSE symbol found.</div>";
+      results.style.display="block";
+      results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});
+    };
+    draw(local);
+    if(q.length>=2) timer=setTimeout(async()=>{try{const remote=await searchSymbols(q);if(my!==seq)return;draw([...local,...remote].filter((s,i,a)=>a.findIndex(x=>x.symbol===s.symbol)===i).slice(0,12));}catch{}},250);
   });
   document.getElementById("watchlistSearchBtn").onclick=()=>{const v=normalizeSymbol(document.getElementById("watchlistSearch").value);if(v)addToWatchlist(v);document.getElementById("watchlistSearch").value="";};
   document.getElementById("watchlistSearch").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("watchlistSearchBtn").click();});
@@ -188,12 +205,15 @@ function renderNews(items){
   box.innerHTML=items.map(n=>`<div style="padding:7px;background:#0e1429;border-radius:6px;margin:4px 0"><a href="${n.link||"#"}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${n.title}</a><div style="font-size:9px;color:#7C8DB0;margin-top:3px">${n.publisher}</div></div>`).join("");
 }
 async function loadStock(symbol){
+  const requestId=++stockRequestId;
   currentSymbol=symbol;
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
   try{
     const data=await getStockData(symbol);
-    setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN"));
+    if(requestId!==stockRequestId)return;
+    const cap=data.cap||capFromMeta(symbol);
+    document.getElementById("stockName").innerHTML=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" "+capBadge(cap)+" <span style="color:#7C8DB0">• "+new Date().toLocaleTimeString("en-IN")+"</span>";
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
@@ -211,7 +231,9 @@ async function loadStock(symbol){
   }
 }
 function renderChart(data){
-  const container=document.getElementById("chart");container.innerHTML="";
+  const container=document.getElementById("chart");
+  if(chartResizeObserver){try{chartResizeObserver.disconnect();}catch{}chartResizeObserver=null;}
+  container.innerHTML="";
   if(currentChart){try{currentChart.remove();}catch{}currentChart=null;}
   if(!data){container.innerHTML="<div style='height:100%;display:flex;align-items:center;justify-content:center;color:#ffcc00;font-size:11px'>Chart unavailable without live market data.</div>";return;}
   currentChart=createChart(container,{width:container.clientWidth,height:360,layout:{background:{color:"#070d2b"},textColor:"#7C8DB0"},grid:{vertLines:{color:"#17254a"},horzLines:{color:"#17254a"}},rightPriceScale:{borderColor:"#1e2d5a"},timeScale:{borderColor:"#1e2d5a",timeVisible:true}});
@@ -219,7 +241,7 @@ function renderChart(data){
   const candles=[];data.timestamps.forEach((ts,i)=>{const o=data.opens[i],h=data.highs[i],l=data.lows[i],c=data.closes[i];if([o,h,l,c].every(Number.isFinite))candles.push({time:ts,open:o,high:h,low:l,close:c});});series.setData(candles);
   const vol=currentChart.addSeries(HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:""});vol.priceScale().applyOptions({scaleMargins:{top:.8,bottom:0}});vol.setData(candles.map((c,i)=>({time:c.time,value:Number(data.volumes[i])||0})));
   currentChart.timeScale().fitContent();
-  new ResizeObserver(()=>{if(currentChart)currentChart.applyOptions({width:container.clientWidth});}).observe(container);
+  chartResizeObserver=new ResizeObserver(()=>{if(currentChart)currentChart.applyOptions({width:Math.max(320,container.clientWidth)});});chartResizeObserver.observe(container);
 }
 async function loadIndices(){
   const syms=[["^NSEI","NIFTY 50"],["^NSEBANK","BANK NIFTY"],["^BSESN","SENSEX"],["^CNXIT","NIFTY IT"]];
