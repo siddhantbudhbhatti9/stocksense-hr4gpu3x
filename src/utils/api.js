@@ -346,6 +346,24 @@ export async function getNews(symbol){
   return data;
 }
 
+export async function getMarketOverview(){
+  const indexes=[
+    ["^NSEI","NIFTY 50"],["^CNX100","NIFTY 100"],["^CNX500","NIFTY 500"],["NIFTYMIDCAP150.NS","NIFTY Midcap 150"],
+    ["^NSEBANK","NIFTY Bank"],["^CNXFIN","NIFTY Financial Services"],["^CNXIT","NIFTY IT"],["^CNXAUTO","NIFTY Auto"],
+    ["^CNXPHARMA","NIFTY Pharma"],["^CNXFMCG","NIFTY FMCG"],["^CNXMETAL","NIFTY Metal"],["^CNXREALTY","NIFTY Realty"],
+    ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
+    ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
+  ];
+  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(indexes.map(x=>x[0]).join(",")));
+  const bySymbol=new Map((json?.quoteResponse?.result||[]).map(q=>[String(q.symbol||"").toUpperCase(),q]));
+  return indexes.map(([symbol,name])=>{
+    const q=bySymbol.get(symbol.toUpperCase());
+    const price=Number.isFinite(q?.regularMarketPrice)?q.regularMarketPrice:null;
+    const prev=Number.isFinite(q?.regularMarketPreviousClose)?q.regularMarketPreviousClose:null;
+    return {n:name,q:price!=null?{price,prev}:null,pct:Number.isFinite(price)&&Number.isFinite(prev)&&prev!==0?(price-prev)/prev*100:null};
+  });
+}
+
 export async function searchSymbols(query){
   const q=String(query||"").trim();
   if(!q) return [];
