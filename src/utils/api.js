@@ -106,6 +106,52 @@ function latestTimeseriesNumber(results, keys){
   return {value:null,date:null};
 }
 
+function latestSeriesValue(results,key){
+  for(const row of results||[]){
+    const arr=row?.[key];
+    if(Array.isArray(arr)&&arr.length){
+      const item=arr[arr.length-1], value=rawValue(item?.reportedValue);
+      if(Number.isFinite(value)) return {value,date:item?.asOfDate||null};
+    }
+  }
+  return {value:null,date:null};
+}
+function buildFinancialRows(results,periodType){
+  const prefix=periodType==="quarterly"?"quarterly":"annual", map=new Map();
+  for(const row of results||[]){
+    for(const [key,arr] of Object.entries(row||{})){
+      if(!key.startsWith(prefix)||!Array.isArray(arr)) continue;
+      const base=key.slice(prefix.length);
+      const field={TotalRevenue:"revenue",EBITDA:"ebitda",NetIncome:"netIncome",DilutedEPS:"eps",BasicEPS:"eps",OperatingIncome:"operatingIncome",TotalAssets:"assets",TotalDebt:"debt",StockholdersEquity:"equity",CashCashEquivalentsAndShortTermInvestments:"cash"}[base];
+      if(!field) continue;
+      for(const item of arr){
+        const value=rawValue(item?.reportedValue), date=item?.asOfDate;
+        if(!Number.isFinite(value)||!date) continue;
+        const entry=map.get(date)||{date};
+        if(field==="eps"&&Number.isFinite(entry.eps)) continue;
+        entry[field]=value; map.set(date,entry);
+      }
+    }
+  }
+  return [...map.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+}
+async function getNseFundamentals(symbol){
+  const base=symbol.replace(/\.(NS|BO)$/i,"").toUpperCase();
+  const response=await fetch("/api/fundamentals?symbol="+encodeURIComponent(base),{cache:"no-store"});
+  if(!response.ok) throw new Error("NSE fundamentals endpoint returned "+response.status);
+  return response.json();
+}
+function mapNseFundamentals(data,quote){
+  const quarterly=data?.quarterly||[], annual=data?.annual||[], latest=quarterly[0]||{}, latestAnnual=annual[0]||{}, prevAnnual=annual[1]||{};
+  const revenueGrowth=Number.isFinite(latestAnnual.revenue)&&Number.isFinite(prevAnnual.revenue)&&prevAnnual.revenue!==0?(latestAnnual.revenue-prevAnnual.revenue)/Math.abs(prevAnnual.revenue)*100:null;
+  const earningsGrowth=Number.isFinite(latestAnnual.pat)&&Number.isFinite(prevAnnual.pat)&&prevAnnual.pat!==0?(latestAnnual.pat-prevAnnual.pat)/Math.abs(prevAnnual.pat)*100:null;
+  const equity=latest.equity??latestAnnual.equity, debt=latest.debt??latestAnnual.debt, cash=latest.cash??latestAnnual.cash, pat=latest.pat??latestAnnual.pat;
+  const roe=Number.isFinite(pat)&&Number.isFinite(equity)&&equity!==0?pat/equity*100:null;
+  const invested=Number.isFinite(equity)&&Number.isFinite(debt)&&Number.isFinite(cash)?equity+debt-cash:null;
+  const roce=Number.isFinite(latest.ebitda)&&Number.isFinite(invested)&&invested!==0?latest.ebitda/invested*100:null;
+  return {pe:Number.isFinite(quote?.trailingPE)?quote.trailingPE:null,mcap:Number.isFinite(quote?.marketCap)?quote.marketCap:null,pb:Number.isFinite(quote?.priceToBook)?quote.priceToBook:null,eps:latest.eps??latestAnnual.eps??quote?.epsTrailingTwelveMonths??null,bookValue:Number.isFinite(equity)&&Number.isFinite(quote?.sharesOutstanding)&&quote.sharesOutstanding>0?equity/quote.sharesOutstanding:null,div:Number.isFinite(quote?.dividendYield)?quote.dividendYield*100:null,roe,roa:null,roce,debtEquity:latest.debtEquity??latestAnnual.debtEquity??(Number.isFinite(debt)&&Number.isFinite(equity)&&equity!==0?debt/equity:null),revenueGrowth,earningsGrowth,operatingMargin:latest.operatingMargin??latestAnnual.operatingMargin??null,pm:latest.netMargin??latestAnnual.netMargin??null,totalRevenue:latest.revenue??latestAnnual.revenue??null,netIncome:pat??null,ebitda:latest.ebitda??latestAnnual.ebitda??null,freeCashFlow:null,totalDebt:debt??null,cashTotal:cash??null,annualRows:annual,quarterlyRows:quarterly,latestPeriod:latest.date??latestAnnual.date??null,source:"NSE Integrated Filing - Financials",exchange:"NSE",mode:data.mode||"Standalone",sourceUrl:data?.filings?.[0]?.filing?.sourceUrl||null,updatedAt:data.updatedAt||null};
+}
+
 export async function getFundamentals(symbol){
   const [quoteJson, annual, quarterly, valuation] = await Promise.all([
     fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol)),
