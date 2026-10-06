@@ -213,7 +213,7 @@ async function loadStock(symbol){
     const data=await getStockData(symbol);
     if(requestId!==stockRequestId)return;
     const cap=data.cap||capFromMeta(symbol);
-    document.getElementById("stockName").innerHTML=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" "+capBadge(cap)+" <span style="color:#7C8DB0">• "+new Date().toLocaleTimeString("en-IN")+"</span>";
+    document.getElementById("stockName").innerHTML=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" "+capBadge(cap)+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
