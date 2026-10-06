@@ -210,18 +210,17 @@ function latestUnique(filings, consolidated="Standalone"){
 async function main(symbol){
   const base=symbol.replace(/\\.(NS|BO)$/i,"").toUpperCase();
   const filings=await loadFilings(base);
-  const standalone=latestUnique(filings,"Standalone").slice(0,8);
-  const consolidated=latestUnique(filings,"Consolidated").slice(0,8);
+  const standalone=latestUnique(filings,"Standalone").slice(0,4);
+  const consolidated=latestUnique(filings,"Consolidated").slice(0,4);
   const selected=standalone.length?standalone:consolidated;
-  const parsed=[];
-  for(const filing of selected){
+  const parsed=(await Promise.all(selected.map(async filing=>{
     try{
       const doc=await fetchIxbrl(filing);
-      if(!doc) continue;
+      if(!doc) return null;
       const p=parseFilingHtml(doc.html,filing);
-      if(p.ok) parsed.push({...p,filing:{quarterEnd:filing.qeDate,submission:filing.type,audited:filing.audited,consolidated:filing.consolidated,filingDate:filing.creation||filing.broadcast,sourceUrl:doc.url}});
-    }catch{}
-  }
+      return p.ok?{...p,filing:{quarterEnd:filing.qeDate,submission:filing.type,audited:filing.audited,consolidated:filing.consolidated,filingDate:filing.creation||filing.broadcast,sourceUrl:doc.url}}:null;
+    }catch{return null;}
+  }))).filter(Boolean);
   if(!parsed.length) throw new Error("NSE filings were found but financial values could not be parsed");
   const annual=parsed.filter(x=>new Date(x.periodEnd*1000).getUTCMonth()===2).map(x=>({date:x.periodEnd,...x.y})).slice(0,5);
   return {source:"NSE Integrated Filing - Financials",exchange:"NSE",symbol:base,mode:standalone.length?"Standalone":"Consolidated",filings:parsed,annual,quarterly:parsed.map(x=>({date:x.periodEnd,...x.q})).slice(0,8),updatedAt:new Date().toISOString()};
