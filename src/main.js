@@ -300,7 +300,6 @@ async function loadStock(symbol){
   try{
     const data=await getStockData(symbol);
     if(requestId!==stockRequestId)return;
-    const cap=data.cap||capFromMeta(symbol);
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
@@ -374,10 +373,6 @@ async function runScreener(type){
   res.innerHTML='<div style="color:#00ff88;font-size:11px">'+filtered.length+' FOUND</div>'+filtered.map(s=>'<div style="display:flex;justify-content:space-between;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="'+s.nse+'"><span><b>'+s.symbol+'</b> RSI '+s.rsi.toFixed(1)+'</span><span style="color:'+(s.pct>=0?"#00ff88":"#ff4444")+'">'+money(s.price)+' '+percent(s.pct)+'</span></div>').join("");
   res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
 }
-function setupScreener(){
-  document.getElementById("scanBuy").onclick=()=>runScreener("BUY");
-  document.getElementById("scanOversold").onclick=()=>runScreener("OVERSOLD");
-}
 function loadStockGlobal(symbol){
   loadStock(symbol);
   const results=document.getElementById("searchResults");
@@ -389,7 +384,6 @@ async function init(){
   setupSearch();
   setupWatchlistControls();
   setupPortfolio();
-  setupScreener();
   loadPortfolio();
   await Promise.all([loadStock(currentSymbol),renderWatchlist(),loadIndices()]);
   const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
