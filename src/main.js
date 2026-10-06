@@ -342,3 +342,45 @@ function renderChart(data){
   currentChart.timeScale().fitContent();
   chartResizeObserver=new ResizeObserver(()=>{if(currentChart)currentChart.applyOptions({width:Math.max(320,container.clientWidth)});});chartResizeObserver.observe(container);
 }
+async function loadIndices(){
+  const syms=[["^NSEI","NIFTY 50"],["^NSEBANK","BANK NIFTY"],["^BSESN","SENSEX"],["^CNXIT","NIFTY IT"]];
+  const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
+  document.getElementById("indices").innerHTML=values.map(x=>x.q?'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1a274a"><div><div style="font-size:11px;font-weight:600">'+x.n+'</div><div style="font-size:9px;color:#7C8DB0">LAST CLOSE</div></div><div style="text-align:right"><div style="font-size:11px;font-weight:700">'+x.q.price.toFixed(2)+'</div><div style="font-size:9px;color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div></div>':'<div style="padding:10px 0;border-bottom:1px solid #1a274a"><div style="font-size:11px;font-weight:600">'+x.n+'</div><div style="font-size:9px;color:#ffcc00">Market data unavailable</div></div>').join("")+'<div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">IST '+new Date().toLocaleTimeString("en-IN")+'</div>';
+}
+function calcRSIForScreen(c){
+  if(!Array.isArray(c)||c.length<15)return 50;
+  let g=0,l=0;
+  for(let i=c.length-14;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)g+=d;else l-=d;}
+  return l===0?100:100-(100/(1+g/l));
+}
+async function runScreener(type){
+  const box=document.getElementById("screenerBox"),res=document.getElementById("screenerResults");
+  box.style.display="block";res.innerHTML="Scanning live data…";
+  const values=await Promise.all(TICKERS.slice(0,30).map(async t=>{try{const q=await getQuote(t+".NS");const rsi=calcRSIForScreen(q.closes);return {symbol:t,nse:t+".NS",price:q.price,pct:(q.price-q.prev)/q.prev*100,rsi};}catch{return null;}}));
+  const filtered=values.filter(Boolean).filter(r=>type==="BUY"?r.rsi<45:r.rsi<35).sort((a,b)=>a.rsi-b.rsi);
+  res.innerHTML='<div style="color:#00ff88;font-size:11px">'+filtered.length+' FOUND</div>'+filtered.map(s=>'<div style="display:flex;justify-content:space-between;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="'+s.nse+'"><span><b>'+s.symbol+'</b> RSI '+s.rsi.toFixed(1)+'</span><span style="color:'+(s.pct>=0?"#00ff88":"#ff4444")+'">'+money(s.price)+' '+percent(s.pct)+'</span></div>').join("");
+  res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
+}
+function setupScreener(){
+  document.getElementById("scanBuy").onclick=()=>runScreener("BUY");
+  document.getElementById("scanOversold").onclick=()=>runScreener("OVERSOLD");
+}
+function loadStockGlobal(symbol){
+  loadStock(symbol);
+  const results=document.getElementById("searchResults");
+  if(results) results.style.display="none";
+}
+window.loadStockGlobal=loadStockGlobal;
+async function init(){
+  ensureUI();
+  setupSearch();
+  setupWatchlistControls();
+  setupPortfolio();
+  setupScreener();
+  loadPortfolio();
+  await Promise.all([loadStock(currentSymbol),renderWatchlist(),loadIndices()]);
+  const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
+  updateMarketStatus();
+  setInterval(updateMarketStatus,1000);
+}
+init();
