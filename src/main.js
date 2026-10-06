@@ -1,4 +1,4 @@
-import { getQuote, getStockData, getNews, getAISignal, formatCompactNumber, searchSymbols, getMarketCap } from "./utils/api.js";
+import { getQuote, getFastStockData, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -215,8 +215,8 @@ async function renderWatchlist(){
   const live=[];
   await Promise.all(list.map(async(s,i)=>{
     try{
-      const [q,mc]=await Promise.all([getQuote(s.symbol),getMarketCap(s.symbol)]);
-      live[i]={...s,cap:s.cap||mc.cap,price:q.price,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100};
+      const q=await getQuote(s.symbol);
+      live[i]={...s,price:q.price,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100};
     }catch{
       live[i]={...s,price:null,change:null,changePct:null};
     }
@@ -298,7 +298,8 @@ async function loadStock(symbol){
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
   try{
-    const data=await getStockData(symbol);
+    const data=await getFastStockData(symbol);
+    data.fund={};
     if(requestId!==stockRequestId)return;
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
@@ -336,14 +337,21 @@ function renderFinancials(fund){
   setText("financialMeta",(fund?.mode||"")+(fund?.updatedAt?" • updated "+new Date(fund.updatedAt).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"")+(fund?.sourceUrl?" • Official filing linked":""));
 }
 
-    renderFinancials(data.fund);
-    setText("fundSource",data.fund.source||"Company financial data");setText("f_pe",Number.isFinite(data.fund.pe)?data.fund.pe.toFixed(2):"--");setText("f_eps",Number.isFinite(data.fund.eps)?money(data.fund.eps):"--");setText("f_mcap",formatCompactNumber(data.fund.mcap));setText("f_book",Number.isFinite(data.fund.bookValue)?money(data.fund.bookValue):"--");setText("f_div",Number.isFinite(data.fund.div)?data.fund.div.toFixed(2)+"%":"--");setText("f_roe",Number.isFinite(data.fund.roe)?data.fund.roe.toFixed(1)+"%":"--");setText("f_roa",Number.isFinite(data.fund.roa)?data.fund.roa.toFixed(1)+"%":"--");setText("f_de",Number.isFinite(data.fund.debtEquity)?data.fund.debtEquity.toFixed(1):"--");setText("f_rg",Number.isFinite(data.fund.revenueGrowth)?data.fund.revenueGrowth.toFixed(1)+"%":"--");setText("f_eg",Number.isFinite(data.fund.earningsGrowth)?data.fund.earningsGrowth.toFixed(1)+"%":"--");setText("f_om",Number.isFinite(data.fund.operatingMargin)?data.fund.operatingMargin.toFixed(1)+"%":"--");setText("f_pm",Number.isFinite(data.fund.pm)?data.fund.pm.toFixed(1)+"%":"--");setText("f_rev",formatCompactNumber(data.fund.totalRevenue));setText("f_ni",formatCompactNumber(data.fund.netIncome));setText("f_fcf",formatCompactNumber(data.fund.freeCashFlow));setText("f_beta",Number.isFinite(data.fund.beta)?data.fund.beta.toFixed(2):"--");
+    const applyFundamentals=(fund)=>{
+      renderFinancials(fund);
+      setText("fundSource",fund?.source||"Company financial data");
+      setText("f_pe",Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--");setText("f_eps",Number.isFinite(fund?.eps)?money(fund.eps):"--");setText("f_mcap",formatCompactNumber(fund?.mcap));setText("f_book",Number.isFinite(fund?.bookValue)?money(fund.bookValue):"--");setText("f_div",Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--");setText("f_roe",Number.isFinite(fund?.roe)?fund.roe.toFixed(1)+"%":"--");setText("f_roa",Number.isFinite(fund?.roa)?fund.roa.toFixed(1)+"%":"--");setText("f_de",Number.isFinite(fund?.debtEquity)?fund.debtEquity.toFixed(1):"--");setText("f_rg",Number.isFinite(fund?.revenueGrowth)?fund.revenueGrowth.toFixed(1)+"%":"--");setText("f_eg",Number.isFinite(fund?.earningsGrowth)?fund.earningsGrowth.toFixed(1)+"%":"--");setText("f_om",Number.isFinite(fund?.operatingMargin)?fund.operatingMargin.toFixed(1)+"%":"--");setText("f_pm",Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--");setText("f_rev",formatCompactNumber(fund?.totalRevenue));setText("f_ni",formatCompactNumber(fund?.netIncome));setText("f_fcf",formatCompactNumber(fund?.freeCashFlow));setText("f_beta",Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--");
+      setText("peValue","P/E "+(Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(fund?.mcap));setText("betaValue","Beta "+(Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--"));
+      setText("divValue","Div "+(Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--");
+    };
+    applyFundamentals(data.fund);
+    getFundamentals(symbol).then(fund=>{if(requestId===stockRequestId)applyFundamentals(fund);}).catch(()=>{});
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
     const ai=getAISignal(data.rsi,data.sma20,data.sma50);
     setText("aiSignal",ai.t);setText("aiDesc",ai.t==="STRONG BUY"?"Oversold conditions with positive momentum":ai.t==="BUY"?"Momentum and short-term trend align":"Technical conditions do not show a strong buy setup");setText("t_signal",ai.t);
     setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.t==="STRONG BUY"?"Oversold conditions detected":ai.t==="BUY"?"Short-term trend supports the signal":ai.t==="STRONG SELL"?"Overbought conditions detected":"Wait for stronger confirmation");
     document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
-    try{ const news=await getNews(symbol); renderNews(news); }catch{ renderNews([]); }
+    getNews(symbol).then(news=>{if(requestId===stockRequestId)renderNews(news);}).catch(()=>renderNews([]));
   }catch(error){
     setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";console.warn("[StockSense]",error);
   }
@@ -356,7 +364,15 @@ async function loadIndices(){
     ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
     ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
   ];
-  const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
+  try{
+    const response=await fetch("/api/market-overview",{cache:"no-store"});
+    if(response.ok){
+      const values=await response.json();
+      document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+      return;
+    }
+  }catch{}
+  document.getElementById("indices").innerHTML='<div style="padding:12px;color:#7C8DB0;font-size:10px">Market overview is temporarily unavailable. No estimated values are shown.</div>';
   document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
 }
 function calcRSIForScreen(c){
@@ -385,7 +401,9 @@ async function init(){
   setupWatchlistControls();
   setupPortfolio();
   loadPortfolio();
-  await Promise.all([loadStock(currentSymbol),renderWatchlist(),loadIndices()]);
+  loadStock(currentSymbol);
+  renderWatchlist();
+  loadIndices();
   const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
   updateMarketStatus();
   setInterval(updateMarketStatus,1000);
