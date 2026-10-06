@@ -94,6 +94,25 @@ function installDesignSystem(){
     #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
     #chartToolbar button{padding:5px 9px;border:1px solid rgba(91,121,180,.18);border-radius:7px;background:#0e1429;color:#7C8DB0;font-size:9px;font-weight:800;cursor:pointer}.ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
+    .ss-analysis{margin-top:12px;display:grid;grid-template-columns:1.15fr .85fr;gap:10px}
+    .ss-analysis-card{background:linear-gradient(180deg,rgba(9,16,34,.96),rgba(6,11,24,.96));border:1px solid rgba(91,121,180,.18);border-radius:12px;padding:12px}
+    .ss-analysis-title{font-size:9px;color:#7890b8;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+    .ss-signal-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
+    .ss-signal-pill{font-size:16px;font-weight:900;letter-spacing:.02em}
+    .ss-signal-score{font-size:10px;color:#7C8DB0;text-align:right}
+    .ss-score-track{height:7px;background:#17213d;border-radius:999px;overflow:hidden;margin-top:8px}
+    .ss-score-fill{height:100%;width:0%;border-radius:999px;transition:width .25s ease}
+    .ss-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+    .ss-break{padding:8px;border:1px solid rgba(91,121,180,.14);border-radius:8px;background:#0e1429}
+    .ss-break-label{font-size:8px;color:#7890b8;text-transform:uppercase;font-weight:800}
+    .ss-break-value{font-size:10px;font-weight:800;margin-top:3px}
+    .ss-rsi-gauge{position:relative;height:9px;border-radius:999px;background:linear-gradient(90deg,#ef4444 0 30%,#f59e0b 30% 45%,#22c55e 45% 70%,#f59e0b 70% 85%,#ef4444 85%);overflow:hidden;margin-top:9px}
+    .ss-rsi-marker{position:absolute;top:-3px;width:3px;height:15px;background:white;border-radius:3px;box-shadow:0 0 0 2px rgba(255,255,255,.15)}
+    .ss-rsi-labels{display:flex;justify-content:space-between;font-size:7px;color:#7890b8;margin-top:4px}
+    .ss-trend-list{display:grid;gap:7px;margin-top:8px}
+    .ss-trend-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:#0e1429;border-radius:8px;border:1px solid rgba(91,121,180,.14)}
+    .ss-trend-name{font-size:9px;color:#7890b8}.ss-trend-value{font-size:10px;font-weight:800}
+    @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:1180px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#chart{height:300px!important}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
     @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}#watchlistSort{font-size:9px}}
@@ -125,11 +144,34 @@ function ensureUI(){
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
           <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ Watchlist</button></div></div>
           <div id="chartToolbar" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:6px 8px;background:#070d2b;border:1px solid #1e2d5a;border-bottom:none;border-radius:10px 10px 0 0"><div style="display:flex;gap:4px"><button data-range="1M">1M</button><button data-range="3M">3M</button><button data-range="6M">6M</button><button data-range="1Y">1Y</button></div><span style="font-size:9px;color:#7C8DB0">Closing-price history</span></div><div id="chart" style="height:360px;margin-top:0;border:1px solid #1e2d5a;border-radius:0 0 10px 10px;overflow:hidden"></div>
-          <div class="ss-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">RSI (14)</div><div id="rsiValue" style="font-size:18px;font-weight:800">--</div><div style="height:3px;background:#1e2d5a;margin-top:6px"><div id="rsiBar" style="height:100%;width:50%;background:#00d4ff"></div></div></div>
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">SMA 20/50/200</div><div style="font-size:11px;margin-top:2px"><div>20: <b id="sma20">--</b></div><div>50: <b id="sma50">--</b></div><div>200: <b id="sma200">--</b></div></div><div id="smaStatus" style="font-size:9px;margin-top:4px"></div></div>
+          <div class="ss-analysis">
+            <div class="ss-analysis-card">
+              <div class="ss-analysis-title">Signal Analysis</div>
+              <div class="ss-signal-hero"><div><div id="analysisSignal" class="ss-signal-pill">--</div><div id="analysisSignalDesc" style="font-size:9px;color:#7C8DB0;margin-top:3px">Awaiting technical data</div></div><div class="ss-signal-score"><div>TECHNICAL SCORE</div><b id="analysisScore">--</b></div></div>
+              <div class="ss-score-track"><div id="analysisScoreFill" class="ss-score-fill"></div></div>
+              <div class="ss-breakdown">
+                <div class="ss-break"><div class="ss-break-label">RSI</div><div id="analysisRsiState" class="ss-break-value">--</div></div>
+                <div class="ss-break"><div class="ss-break-label">Momentum</div><div id="analysisMomentum" class="ss-break-value">--</div></div>
+                <div class="ss-break"><div class="ss-break-label">Trend</div><div id="analysisTrend" class="ss-break-value">--</div></div>
+              </div>
+            </div>
+            <div class="ss-analysis-card">
+              <div class="ss-analysis-title">Technical Snapshot</div>
+              <div class="ss-trend-list">
+                <div class="ss-trend-row"><span class="ss-trend-name">RSI (14)</span><b id="rsiValue" class="ss-trend-value">--</b></div>
+                <div class="ss-trend-row"><span class="ss-trend-name">SMA 20 / 50</span><b id="smaStatus" class="ss-trend-value">--</b></div>
+                <div class="ss-trend-row"><span class="ss-trend-name">SMA 50 / 200</span><b id="smaLongStatus" class="ss-trend-value">--</b></div>
+                <div class="ss-trend-row"><span class="ss-trend-name">Price vs SMA20</span><b id="priceTrend" class="ss-trend-value">--</b></div>
+              </div>
+              <div class="ss-rsi-gauge"><div id="analysisRsiMarker" class="ss-rsi-marker" style="left:50%"></div></div>
+              <div class="ss-rsi-labels"><span>Oversold</span><span>Neutral</span><span>Overbought</span></div>
+            </div>
+          </div>
+          <div class="ss-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">P/E • M-CAP • BETA</div><div id="peValue" style="font-size:12px;font-weight:700;margin-top:2px">--</div><div id="mcapValue" style="font-size:10px;color:#7C8DB0"></div><div id="betaValue" style="font-size:10px;color:#7C8DB0"></div></div>
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">DIV • PROFIT • YEAR</div><div id="divValue" style="margin-top:2px">--</div><div id="profitValue" style="font-size:10px">--</div><div id="yearValue" style="font-size:10px">--</div></div>
+            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">MOVING AVERAGES</div><div style="font-size:10px;margin-top:3px">20: <b id="sma20">--</b> · 50: <b id="sma50">--</b></div><div style="font-size:10px">200: <b id="sma200">--</b></div></div>
+            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">RSI POSITION</div><div id="rsiPosition" style="font-size:12px;font-weight:800;margin-top:4px">--</div><div style="font-size:9px;color:#7C8DB0;margin-top:3px">14-period momentum</div></div>
           </div>
           <div class="ss-fund" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px"><div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📊 FUNDAMENTALS</div><div style="margin-top:6px;font-size:11px;line-height:22px"><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">P/E Ratio</span><b id="f_pe">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Market Cap</span><b id="f_mcap">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Div Yield</span><b id="f_div">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Beta</span><b id="f_beta">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Profit Margin</span><b id="f_pm">--</b></div></div></div><div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📈 TECHNICALS</div><div style="margin-top:6px;font-size:11px;line-height:22px"><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">RSI</span><b id="t_rsi">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA20</span><b id="t_sma20">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA50</span><b id="t_sma50">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA200</span><b id="t_sma200">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Signal</span><b id="t_signal">--</b></div></div></div></div>
           <div style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📰 NEWS - LAST CLOSE</div><div id="newsBox" style="margin-top:6px;font-size:11px"></div></div>
@@ -246,13 +288,31 @@ async function loadStock(symbol){
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
-    setText("rsiValue",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");document.getElementById("rsiBar").style.width=Number.isFinite(data.rsi)?data.rsi+"%":"0%";
-    setText("sma20",money(data.sma20));setText("sma50",money(data.sma50));setText("sma200",money(data.sma200));setText("smaStatus",data.sma20!=null&&data.sma50!=null?(data.sma20>data.sma50?"Golden Cross":"Death Cross"):"Not enough history");
+    setText("rsiValue",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");
+    setText("sma20",money(data.sma20));setText("sma50",money(data.sma50));setText("sma200",money(data.sma200));
+    const rsi=Number.isFinite(data.rsi)?data.rsi:null;
+    const rsiState=rsi==null?"Unavailable":rsi<30?"Oversold":rsi<45?"Weak / recovering":rsi<=70?"Neutral / healthy":rsi<=80?"Overbought":"Highly overbought";
+    const momentum=rsi==null?"Unavailable":rsi<30?"Strong downside pressure":rsi<45?"Bearish momentum":rsi>70?"Overheated momentum":"Balanced momentum";
+    const trend20_50=data.sma20!=null&&data.sma50!=null?(data.sma20>data.sma50?"Bullish":"Bearish"):"Unavailable";
+    const trend50_200=data.sma50!=null&&data.sma200!=null?(data.sma50>data.sma200?"Bullish":"Bearish"):"Unavailable";
+    const priceVs20=data.price!=null&&data.sma20!=null?(data.price>data.sma20?"Above SMA20":"Below SMA20"):"Unavailable";
+    setText("smaStatus",trend20_50);setText("smaLongStatus",trend50_200);setText("priceTrend",priceVs20);setText("rsiPosition",rsiState);
+    setText("analysisRsiState",rsiState);setText("analysisMomentum",momentum);setText("analysisTrend",trend20_50==="Bullish"&&trend50_200==="Bullish"?"Bullish trend":trend20_50==="Bearish"&&trend50_200==="Bearish"?"Bearish trend":"Mixed trend");
+    const marker=document.getElementById("analysisRsiMarker"); if(marker) marker.style.left=(rsi==null?"50%":Math.max(0,Math.min(100,rsi))+"%");
+    const rsiScore=rsi==null?50:rsi<30?88:rsi<45?68:rsi<=70?55:rsi<=80?35:18;
+    const trendScore=(trend20_50==="Bullish"?25:trend20_50==="Bearish"?0:12)+(trend50_200==="Bullish"?25:trend50_200==="Bearish"?0:12);
+    const score=Math.round(Math.max(0,Math.min(100,(rsiScore+trendScore)/1.5)));
+    setText("analysisScore",(rsi==null?"--":score+"/100"));
+    const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=rsi==null?"0%":score+"%";scoreFill.style.background=score>=70?"#22c55e":score>=45?"#f59e0b":"#ef4444";}
+    setText("smaLongStatus",trend50_200);
     setText("peValue","P/E "+(Number.isFinite(data.fund.pe)?data.fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(data.fund.mcap));setText("betaValue","Beta "+(Number.isFinite(data.fund.beta)?data.fund.beta.toFixed(2):"--"));
     setText("divValue","Div "+(Number.isFinite(data.fund.div)?data.fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(data.fund.pm)?data.fund.pm.toFixed(1)+"%":"--"));setText("yearValue","Year "+(Number.isFinite(data.yearChange)?percent(data.yearChange):"--"));
     setText("f_pe",Number.isFinite(data.fund.pe)?data.fund.pe.toFixed(2):"--");setText("f_mcap",formatCompactNumber(data.fund.mcap));setText("f_div",Number.isFinite(data.fund.div)?data.fund.div.toFixed(2)+"%":"--");setText("f_beta",Number.isFinite(data.fund.beta)?data.fund.beta.toFixed(2):"--");setText("f_pm",Number.isFinite(data.fund.pm)?data.fund.pm.toFixed(1)+"%":"--");
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
-    const ai=getAISignal(data.rsi,data.sma20,data.sma50);setText("aiSignal",ai.t);setText("aiDesc",ai.t);setText("t_signal",ai.t);document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;
+    const ai=getAISignal(data.rsi,data.sma20,data.sma50);
+    setText("aiSignal",ai.t);setText("aiDesc",ai.t==="STRONG BUY"?"Oversold conditions with positive momentum":ai.t==="BUY"?"Momentum and short-term trend align":"Technical conditions do not show a strong buy setup");setText("t_signal",ai.t);
+    setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.t==="STRONG BUY"?"Oversold conditions detected":ai.t==="BUY"?"Short-term trend supports the signal":ai.t==="STRONG SELL"?"Overbought conditions detected":"Wait for stronger confirmation");
+    document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
     renderChart(data);
     try{ const news=await getNews(symbol); renderNews(news); }catch{ renderNews([]); }
   }catch(error){
