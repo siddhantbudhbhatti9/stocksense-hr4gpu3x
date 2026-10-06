@@ -320,8 +320,9 @@ export async function searchSymbols(query){
 }
 
 export async function getMarketCap(symbol){
-  const fund=await getFundamentals(symbol);
-  return {marketCap:fund.mcap,cap:classifyMarketCap(fund.mcap)};
+  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
+  const q=json?.quoteResponse?.result?.[0]||{};
+  return {marketCap:Number.isFinite(q.marketCap)?q.marketCap:null,cap:classifyMarketCap(q.marketCap)};
 }
 
 export async function fetchLivePrice(symbol){
