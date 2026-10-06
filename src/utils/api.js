@@ -57,90 +57,126 @@ function pctValue(node){
 }
 
 async function getFundamentalsTimeseries(symbol, periodType="annual"){
-  const annualTypes=[
-    "annualTotalRevenue","annualEBITDA","annualOperatingIncome","annualNetIncome",
-    "annualDilutedEPS","annualBasicEPS","annualGrossProfit","annualOperatingExpense",
-    "annualFreeCashFlow","annualCapitalExpenditure","annualTotalAssets","annualTotalDebt",
-    "annualStockholdersEquity","annualCashCashEquivalentsAndShortTermInvestments"
+  const baseTypes=[
+    "TotalRevenue","EBITDA","OperatingIncome","NetIncome","DilutedEPS","BasicEPS","GrossProfit","OperatingExpense",
+    "FreeCashFlow","CapitalExpenditure","TotalAssets","TotalDebt","StockholdersEquity","CashCashEquivalentsAndShortTermInvestments"
   ];
-  const quarterlyTypes=annualTypes.map(x=>x.replace(/^annual/,"quarterly"));
-  const types=periodType==="quarterly"?quarterlyTypes:annualTypes;
+  const prefix=periodType==="quarterly"?"quarterly":"annual";
   const now=Math.floor(Date.now()/1000);
   const start=now-60*60*24*365*6;
+  // Yahoo's fundamentals endpoint becomes unreliable when too many fields are packed
+  // into one URL. Fetch small chunks and merge the result instead of losing the
+  // whole statement because one oversized request failed.
+  const chunks=[];
+  for(let i=0;i<baseTypes.length;i+=4) chunks.push(baseTypes.slice(i,i+4));
+  const merged=[];
+  await Promise.all(chunks.map(async chunk=>{
+    const types=chunk.map(k=>prefix+k);
+    const url="https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"+encodeURIComponent(symbol)+"?symbol="+encodeURIComponent(symbol)+"&type="+types.join(",")+"&period1="+start+"&period2="+now;
+    try{
+      const json=await fetchYahoo(url);
+      const rows=json?.timeseries?.result||[];
+      merged.push(...rows);
+    }catch{}
+  }));
+  return merged;
+}
+
+async function getValuationTimeseries(symbol){
+  const types=[
+    "trailingMarketCap","trailingPeRatio","trailingPegRatio","trailingPsRatio","trailingPbRatio",
+    "trailingEnterprisesValueEBITDARatio","trailingEnterprisesValueRevenueRatio"
+  ];
+  const now=Math.floor(Date.now()/1000);
+  const start=now-60*60*24*365*2;
   const url="https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/"+encodeURIComponent(symbol)+"?symbol="+encodeURIComponent(symbol)+"&type="+types.join(",")+"&period1="+start+"&period2="+now;
-  const json=await fetchYahoo(url);
-  return json?.timeseries?.result||[];
-}
-
-function latestSeriesValue(results,key){
-  const row=results.find(x=>Array.isArray(x?.[key])&&x[key].length);
-  const values=row?.[key]||[];
-  const item=values[values.length-1];
-  return {value:rawValue(item?.reportedValue),date:item?.asOfDate||null};
-}
-
-function buildFinancialRows(results, prefix){
-  const keys=["TotalRevenue","EBITDA","OperatingIncome","NetIncome","DilutedEPS","GrossProfit","FreeCashFlow"];
-  const rows=[];
-  const dates=new Set();
-  for(const r of results){
-    for(const k of Object.keys(r)){
-      if(k.startsWith(prefix)&&Array.isArray(r[k])) for(const item of r[k]) if(item?.asOfDate) dates.add(item.asOfDate);
-    }
-  }
-  const ordered=[...dates].sort((a,b)=>b-a).slice(0,5);
-  for(const date of ordered){
-    const get=(key)=>{
-      const r=results.find(x=>Array.isArray(x?.[prefix+key]));
-      const item=r?.[prefix+key]?.find(v=>v?.asOfDate===date);
-      return rawValue(item?.reportedValue);
-    };
-    rows.push({date,revenue:get("TotalRevenue"),ebitda:get("EBITDA"),operatingIncome:get("OperatingIncome"),netIncome:get("NetIncome"),eps:get("DilutedEPS"),grossProfit:get("GrossProfit"),freeCashFlow:get("FreeCashFlow")});
-  }
-  return rows;
-}
-
-export async function getFundamentals(symbol){
-  const quoteJson=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
-  const q=quoteJson?.quoteResponse?.result?.[0]||{};
-  let annual=[],quarterly=[];
   try{
-    [annual,quarterly]=await Promise.all([
-      getFundamentalsTimeseries(symbol,"annual"),
-      getFundamentalsTimeseries(symbol,"quarterly")
-    ]);
-  }catch{}
+    const json=await fetchYahoo(url);
+    return json?.timeseries?.result||[];
+  }catch{return [];}
+}
+
+function latestTimeseriesNumber(results, keys){
+  for(const key of keys){
+    const row=results.find(x=>Array.isArray(x?.[key])&&x[key].length);
+    const item=row?.[key]?.[row[key].length-1];export async function getFundamentals(symbol){
+  const [quoteJson, annual, quarterly, valuation] = await Promise.all([
+    fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol)),
+    getFundamentalsTimeseries(symbol,"annual"),
+    getFundamentalsTimeseries(symbol,"quarterly"),
+    getValuationTimeseries(symbol)
+  ]);
+  const q=quoteJson?.quoteResponse?.result?.[0]||{};
+
+  // quoteSummary is retained only as a best-effort supplement. Core statement
+  // data never depends on it.
   let summary=null;
   try{
     const url="https://query1.finance.yahoo.com/v10/finance/quoteSummary/"+encodeURIComponent(symbol)+"?modules=summaryDetail,defaultKeyStatistics,financialData";
     const json=await fetchYahoo(url);
     summary=json?.quoteSummary?.result?.[0]||null;
   }catch{}
+
   const sd=summary?.summaryDetail||{}, ks=summary?.defaultKeyStatistics||{}, fd=summary?.financialData||{};
   const latestRevenue=latestSeriesValue(annual,"annualTotalRevenue");
   const latestEps=latestSeriesValue(annual,"annualDilutedEPS");
   const latestNetIncome=latestSeriesValue(annual,"annualNetIncome");
   const latestEbitda=latestSeriesValue(annual,"annualEBITDA");
   const latestFcf=latestSeriesValue(annual,"annualFreeCashFlow");
+
+  const trailingMcap=latestTimeseriesNumber(valuation,["trailingMarketCap"]);
+  const trailingPE=latestTimeseriesNumber(valuation,["trailingPeRatio"]);
+  const trailingPS=latestTimeseriesNumber(valuation,["trailingPsRatio"]);
+  const trailingPB=latestTimeseriesNumber(valuation,["trailingPbRatio"]);
+
+  const mcap=Number.isFinite(q.marketCap)?q.marketCap:(Number.isFinite(trailingMcap.value)?trailingMcap.value:rawValue(sd.marketCap));
+  const pe=Number.isFinite(q.trailingPE)?q.trailingPE:(Number.isFinite(trailingPE.value)?trailingPE.value:rawValue(sd.trailingPE));
+
+  const revenue=rawValue(fd.totalRevenue)||latestRevenue.value;
+  const netIncome=rawValue(fd.netIncomeToCommon)||latestNetIncome.value;
+  const ebitda=rawValue(fd.ebitda)||latestEbitda.value;
+  const eps=Number.isFinite(q.epsTrailingTwelveMonths)?q.epsTrailingTwelveMonths:latestEps.value||rawValue(ks.trailingEps);
+  const fcf=rawValue(fd.freeCashflow)||latestFcf.value;
+
+  // Derive ratios from statements when Yahoo's quoteSummary ratios are missing.
+  const equity=latestSeriesValue(annual,"annualStockholdersEquity").value;
+  const assets=latestSeriesValue(annual,"annualTotalAssets").value;
+  const debt=latestSeriesValue(annual,"annualTotalDebt").value;
+  const cash=latestSeriesValue(annual,"annualCashCashEquivalentsAndShortTermInvestments").value;
+  const roeDerived=Number.isFinite(netIncome)&&Number.isFinite(equity)&&equity!==0?(netIncome/equity)*100:null;
+  const roaDerived=Number.isFinite(netIncome)&&Number.isFinite(assets)&&assets!==0?(netIncome/assets)*100:null;
+  const deDerived=Number.isFinite(debt)&&Number.isFinite(equity)&&equity!==0?(debt/equity)*100:null;
+  const revenueGrowthDerived=(()=>{const r=annualRowsSafe(annual); if(r.length<2||!Number.isFinite(r[0].revenue)||!Number.isFinite(r[1].revenue)||r[1].revenue===0)return null; return (r[0].revenue-r[1].revenue)/Math.abs(r[1].revenue)*100;})();
+  const profitGrowthDerived=(()=>{const r=annualRowsSafe(annual); if(r.length<2||!Number.isFinite(r[0].netIncome)||!Number.isFinite(r[1].netIncome)||r[1].netIncome===0)return null; return (r[0].netIncome-r[1].netIncome)/Math.abs(r[1].netIncome)*100;})();
+
   return {
-    pe:Number.isFinite(q.trailingPE)?q.trailingPE:rawValue(sd.trailingPE),
-    mcap:Number.isFinite(q.marketCap)?q.marketCap:rawValue(sd.marketCap),
-    beta:Number.isFinite(q.beta)?q.beta:rawValue(sd.beta),
+    pe, mcap, beta:Number.isFinite(q.beta)?q.beta:rawValue(sd.beta),
     div:Number.isFinite(q.dividendYield)?q.dividendYield*100:pctValue(sd.dividendYield),
-    pm:Number.isFinite(q.profitMargins)?q.profitMargins*100:pctValue(fd.profitMargins),
-    roe:pctValue(fd.returnOnEquity), roa:pctValue(fd.returnOnAssets), roce:null,
-    debtEquity:rawValue(fd.debtToEquity), currentRatio:rawValue(fd.currentRatio),
-    revenueGrowth:pctValue(fd.revenueGrowth), earningsGrowth:pctValue(fd.earningsGrowth),
-    grossMargin:pctValue(fd.grossMargins), operatingMargin:pctValue(fd.operatingMargins),
-    ebitda:rawValue(fd.ebitda)||latestEbitda.value,
-    totalRevenue:rawValue(fd.totalRevenue)||latestRevenue.value,
-    netIncome:rawValue(fd.netIncomeToCommon)||latestNetIncome.value,
-    eps:Number.isFinite(q.epsTrailingTwelveMonths)?q.epsTrailingTwelveMonths:latestEps.value||rawValue(ks.trailingEps),
-    bookValue:rawValue(ks.bookValue), enterpriseValue:rawValue(ks.enterpriseValue),
-    freeCashFlow:rawValue(fd.freeCashflow)||latestFcf.value,
-    totalDebt:rawValue(fd.totalDebt), cashTotal:rawValue(fd.totalCash),
+    pm:pctValue(fd.profitMargins), roe:Number.isFinite(pctValue(fd.returnOnEquity))?pctValue(fd.returnOnEquity):roeDerived,
+    roa:Number.isFinite(pctValue(fd.returnOnAssets))?pctValue(fd.returnOnAssets):roaDerived,
+    roce:null,
+    debtEquity:Number.isFinite(rawValue(fd.debtToEquity))?rawValue(fd.debtToEquity):deDerived,
+    currentRatio:rawValue(fd.currentRatio),
+    revenueGrowth:Number.isFinite(pctValue(fd.revenueGrowth))?pctValue(fd.revenueGrowth):revenueGrowthDerived,
+    earningsGrowth:Number.isFinite(pctValue(fd.earningsGrowth))?pctValue(fd.earningsGrowth):profitGrowthDerived,
+    grossMargin:pctValue(fd.grossMargins),
+    operatingMargin:pctValue(fd.operatingMargins),
+    ebitda,totalRevenue:revenue,netIncome,eps,
+    bookValue:rawValue(ks.bookValue) || (Number.isFinite(equity)&&Number.isFinite(q.sharesOutstanding)&&q.sharesOutstanding>0?equity/q.sharesOutstanding:null),
+    enterpriseValue:rawValue(ks.enterpriseValue),
+    freeCashFlow:fcf,totalDebt:debt,cashTotal:cash,
     annualRows:buildFinancialRows(annual,"annual"),
     quarterlyRows:buildFinancialRows(quarterly,"quarterly"),
+    latestPeriod:latestRevenue.date||latestEps.date||null,
+    source:"Yahoo Finance fundamentals time series"
+  };
+}
+
+function annualRowsSafe(results){
+  return buildFinancialRows(results,"annual");
+}
+
+buildFinancialRows(quarterly,"quarterly"),
     latestPeriod:latestRevenue.date||latestEps.date||null,
     source:"Yahoo Finance fundamentals time series"
   };
