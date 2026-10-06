@@ -1,6 +1,5 @@
-import { getQuote, getStockData, getNews, getAISignal, formatCompactNumber, classifyMarketCap, searchSymbols, getMarketCap } from "./utils/api.js";
+import { getQuote, getStockData, getNews, getAISignal, formatCompactNumber, searchSymbols, getMarketCap } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
-import { createChart, CandlestickSeries, HistogramSeries } from "lightweight-charts";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
 const STOCK_META=new Map(nseSearchUniverse.map(s=>[s.symbol,s]));
@@ -8,18 +7,8 @@ const DEFAULT_WATCHLIST=defaultWatchlist.map(s=>({...s}));
 const WATCHLIST_KEY="ss_watchlists_v2";
 const ACTIVE_KEY="ss_active_watchlist_v2";
 const SORT_KEY="ss_watchlist_sort_v2";
-let chartResizeObserver=null;
 let stockRequestId=0;
 
-function capFromMeta(symbol){
-  const base=symbol.replace(/\.(NS|BO)$/,"");
-  return STOCK_META.get(base+".NS")?.cap?.[0] || null;
-}
-function capBadge(cap){
-  if(!cap) return '';
-  const label=cap==="L"?"L":cap==="M"?"M":"S";
-  return '<span title="'+(cap==="L"?"Large Cap":cap==="M"?"Mid Cap":"Small Cap")+'" style="font-size:8px;font-weight:800;color:white;background:'+(cap==="L"?"#14532d":cap==="M"?"#164e63":"#713f12")+';border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 5px">'+label+"</span>";
-}
 function loadWatchlists(){
   const initial={Default:DEFAULT_WATCHLIST.map(s=>({...s})),List1:[],List2:[]};
   try{
@@ -44,9 +33,6 @@ let activeWatchlist=localStorage.getItem(ACTIVE_KEY)||"Default";
 if(!watchlists[activeWatchlist]) activeWatchlist="Default";
 let sortMode=localStorage.getItem(SORT_KEY)||"default";
 let currentSymbol="SBIN.NS";
-let currentChart=null;
-let chartSourceData=null;
-let chartRange="1Y";
 
 function saveWatchlists(){
   localStorage.setItem(WATCHLIST_KEY,JSON.stringify(watchlists));
