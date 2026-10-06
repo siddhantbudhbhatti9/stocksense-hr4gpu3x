@@ -1,6 +1,7 @@
 const PROXIES = [
+  "/api/yahoo?url=",
   "https://api.allorigins.win/raw?url=",
-  "https://corsproxy.io/?",
+  "https://corsproxy.io/?url=",
   "https://api.codetabs.com/v1/proxy?quest="
 ];
 const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
@@ -27,16 +28,18 @@ export async function getQuote(symbol){
   const meta=result?.meta;
   const quote=result?.indicators?.quote?.[0];
   const closes=(quote?.close||[]).filter(Number.isFinite);
-  if(!result || closes.length<2) throw new Error("Live market data unavailable for "+symbol);
-  const price=Number.isFinite(meta?.regularMarketPrice) ? meta.regularMarketPrice : closes[closes.length-1];
-  const prev=Number.isFinite(meta?.previousClose) ? meta.previousClose : closes[closes.length-2];
+  if(!result || closes.length<2) throw new Error("Last closing price unavailable for "+symbol);
+  // Use the latest completed daily close as the primary display price.
+  // This keeps the app useful outside market hours and when Yahoo's live quote is unavailable.
+  const price=closes[closes.length-1];
+  const prev=closes[closes.length-2];
   if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) throw new Error("Incomplete live market data for "+symbol);
   return {
     symbol, price, prev, closes,
     timestamps:result.timestamp||[],
     opens:quote?.open||[], highs:quote?.high||[], lows:quote?.low||[], volumes:quote?.volume||[],
-    high:Number.isFinite(meta?.regularMarketDayHigh)?meta.regularMarketDayHigh:Math.max(...(quote?.high||[]).filter(Number.isFinite)),
-    low:Number.isFinite(meta?.regularMarketDayLow)?meta.regularMarketDayLow:Math.min(...(quote?.low||[]).filter(Number.isFinite)),
+    high:(quote?.high||[]).filter(Number.isFinite).slice(-1)[0] ?? null,
+    low:(quote?.low||[]).filter(Number.isFinite).slice(-1)[0] ?? null,
     vol:Number.isFinite(meta?.regularMarketVolume)?meta.regularMarketVolume:null,
     high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:Math.max(...closes),
     low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:Math.min(...closes)
