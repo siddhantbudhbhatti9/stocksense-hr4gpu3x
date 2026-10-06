@@ -153,6 +153,20 @@ function mapNseFundamentals(data,quote){
 }
 
 export async function getFundamentals(symbol){
+  let quote=null;
+  try{
+    const q=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
+    quote=q?.quoteResponse?.result?.[0]||null;
+  }catch{}
+  try{
+    const nse=await getNseFundamentals(symbol);
+    return mapNseFundamentals(nse,quote);
+  }catch{
+    return await getYahooFundamentals(symbol);
+  }
+}
+
+async function getYahooFundamentals(symbol){
   const [quoteJson, annual, quarterly, valuation] = await Promise.all([
     fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol)),
     getFundamentalsTimeseries(symbol,"annual"),
