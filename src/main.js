@@ -76,10 +76,9 @@ function installDesignSystem(){
     #watchlistSort{cursor:pointer}
     #mixCaps [data-row]{transition:background .16s ease,transform .16s ease;border-bottom-color:rgba(91,121,180,.12)!important}
     #mixCaps [data-row]:hover{background:rgba(79,140,255,.07);transform:translateX(2px)}
-    #chart{background:linear-gradient(180deg,#07101f,#050914);box-shadow:inset 0 0 40px rgba(0,0,0,.18)}
-    #newsBox a{color:#dce8ff!important;text-decoration:none}
+        #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
-    #chartToolbar button{padding:5px 9px;border:1px solid rgba(91,121,180,.18);border-radius:7px;background:#0e1429;color:#7C8DB0;font-size:9px;font-weight:800;cursor:pointer}.ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
+     .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
     .ss-analysis{margin-top:12px;display:grid;grid-template-columns:1.15fr .85fr;gap:10px}
     .ss-analysis-card{background:linear-gradient(180deg,rgba(9,16,34,.96),rgba(6,11,24,.96));border:1px solid rgba(91,121,180,.18);border-radius:12px;padding:12px}
     .ss-analysis-title{font-size:9px;color:#7890b8;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
@@ -99,8 +98,8 @@ function installDesignSystem(){
     .ss-trend-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:#0e1429;border-radius:8px;border:1px solid rgba(91,121,180,.14)}
     .ss-trend-name{font-size:9px;color:#7890b8}.ss-trend-value{font-size:10px;font-weight:800}
     @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}}
-    @media(max-width:1180px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
-    @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#chart{height:300px!important}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
+    @media(max-width:1080px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
+    @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
     @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}#watchlistSort{font-size:9px}}
   `; document.head.appendChild(style);
 }
@@ -112,9 +111,9 @@ function ensureUI(){
     <div id="ss-header" style="background:#0e1a4d;border-bottom:1px solid #1e2d5a;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20">
       <div style="display:flex;align-items:center;gap:12px"><div style="width:40px;height:40px;background:linear-gradient(135deg,#00d4ff,#7c3aed);border-radius:10px;display:flex;align-items:center;justify-content:center"><span style="color:white;font-weight:900;font-size:22px">₹</span></div><div><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:900;font-size:19px">STOCKSENSE</span><span style="font-size:9px;background:#1e2d5a;color:#00d4ff;padding:2px 6px;border-radius:10px">BETA</span></div><div style="font-size:11px;color:#7C8DB0">Indian Stock Market Intelligence</div></div></div>
       <div style="flex:1;max-width:440px;position:relative"><input id="searchAll" placeholder="Search stocks, symbols or company names…" style="width:100%;padding:10px 16px;background:#070d2b;color:white;border:1px solid #1e2d5a;border-radius:20px;outline:none;font-size:13px"/><div id="searchResults" style="position:absolute;top:44px;left:0;right:0;z-index:9999;background:#0f172f;border:1px solid #1e2d5a;border-radius:12px;max-height:320px;overflow:auto;display:none"></div></div>
-      <div id="ss-header-actions" style="display:flex;gap:8px;align-items:center"><button id="scanBuy" style="padding:8px 14px;background:#00ff88;color:#070d2b;border:none;border-radius:20px;font-weight:800;font-size:11px">SCAN BUY</button><button id="scanOversold" style="padding:8px 14px;background:#121a33;color:white;border:1px solid #1e2d5a;border-radius:20px;font-size:11px">RSI &lt;35</button><div id="marketStatus" style="font-size:11px;padding:7px 12px;background:#121a33;border:1px solid #1e2d5a;border-radius:20px">--</div></div>
+      <div id="ss-header-actions" style="display:flex;gap:8px;align-items:center"><div id="marketStatus" style="font-size:11px;padding:7px 12px;background:#121a33;border:1px solid #1e2d5a;border-radius:20px">--</div></div>
     </div>
-    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr 300px;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
+    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr 420px;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
       <div class="ss-card ss-watch" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:12px 14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:850;letter-spacing:.01em">Watchlist</div><div id="watchlistCount" style="font-size:9px;color:#7C8DB0">Default • 10 stocks</div></div><div style="font-size:9px;color:#8fb8ff;background:rgba(79,140,255,.12);padding:4px 9px;border-radius:10px;border:1px solid rgba(79,140,255,.2)">LAST CLOSE</div></div>
           <div id="watchlistTabs" style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap"></div>
@@ -129,7 +128,6 @@ function ensureUI(){
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
           <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ Watchlist</button></div></div>
-          <div id="chartToolbar" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:6px 8px;background:#070d2b;border:1px solid #1e2d5a;border-bottom:none;border-radius:10px 10px 0 0"><div style="display:flex;gap:4px"><button data-range="1M">1M</button><button data-range="3M">3M</button><button data-range="6M">6M</button><button data-range="1Y">1Y</button></div><span style="font-size:9px;color:#7C8DB0">Closing-price history</span></div><div id="chart" style="height:360px;margin-top:0;border:1px solid #1e2d5a;border-radius:0 0 10px 10px;overflow:hidden"></div>
           <div class="ss-analysis">
             <div class="ss-analysis-card">
               <div class="ss-analysis-title">Signal Analysis</div>
@@ -209,9 +207,9 @@ async function renderWatchlist(){
   const tabs=document.getElementById("watchlistTabs");
   tabs.innerHTML=["Default","List1","List2"].map(name=>`<button data-list="${name}" style="padding:5px 9px;background:${name===activeWatchlist?"#00d4ff":"#1a294e"};color:${name===activeWatchlist?"#070d2b":"white"};border:none;border-radius:14px;font-size:9px;font-weight:800;cursor:pointer">${name==="Default"?"Default":name.replace("List","List ")}</button>`).join("");
   tabs.querySelectorAll("[data-list]").forEach(btn=>btn.onclick=()=>{activeWatchlist=btn.dataset.list;saveWatchlists();renderWatchlist();});
-  document.getElementById("watchlistHint").textContent=activeWatchlist==="Default"?"Default is the curated 10-stock mix of Large, Mid and Small caps.":"Up to 20 stocks in this list.";
+  document.getElementById("watchlistHint").textContent=activeWatchlist==="Default"?"Default watchlist with 10 curated stocks.":"Up to 20 stocks in this list.";
   const el=document.getElementById("mixCaps");
-  el.innerHTML=list.length?list.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span><span class="cap-${i}">${capBadge(s.cap||capFromMeta(s.symbol))}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">--</div><div class="wl-change" style="text-align:right;font-size:10px;font-weight:700">--</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join(""):"<div style='padding:20px;color:#7C8DB0;text-align:center;font-size:11px'>No stocks in this list.</div>";
+  el.innerHTML=list.length?list.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">--</div><div class="wl-change" style="text-align:right;font-size:10px;font-weight:700">--</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join(""):"<div style='padding:20px;color:#7C8DB0;text-align:center;font-size:11px'>No stocks in this list.</div>";
   const rows=[...el.querySelectorAll("[data-row]")];
   const live=[];
   await Promise.all(list.map(async(s,i)=>{
@@ -231,7 +229,7 @@ async function renderWatchlist(){
     return 0;
   });
   if(sortMode!=="default"){
-    el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span>${capBadge(s.cap||capFromMeta(s.symbol))}</div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div style="text-align:right;color:${s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join("");
+    el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div style="text-align:right;color:${s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join("");
   }else{
     rows.forEach((row,i)=>{const s=live[i]; if(!s)return; row.querySelector(".wl-price").textContent=money(s.price); const c=row.querySelector(".wl-change"); c.textContent=percent(s.changePct); c.style.color=s.changePct>=0?"#00ff88":"#ff4444";});
   }
@@ -261,7 +259,7 @@ function setupSearch(){
     if(!q){results.style.display="none";return;}
     const local=nseSearchUniverse.filter(s=>s.symbol.includes(q)||s.display.includes(q)||s.name.toUpperCase().includes(q)).slice(0,12);
     const draw=matches=>{
-      results.innerHTML=matches.length?matches.map(s=>`<div data-s="${s.symbol}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${s.display}</b> ${capBadge(s.cap?.[0]||"")}</span><span style="color:#00d4ff;font-size:10px">${s.symbol}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching NSE/BSE symbol found.</div>";
+      results.innerHTML=matches.length?matches.map(s=>`<div data-s="${s.symbol}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${s.display}</b></span><span style="color:#00d4ff;font-size:10px">${s.symbol}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching NSE/BSE symbol found.</div>";
       results.style.display="block";
       results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});
     };
@@ -302,7 +300,7 @@ async function loadStock(symbol){
     const data=await getStockData(symbol);
     if(requestId!==stockRequestId)return;
     const cap=data.cap||capFromMeta(symbol);
-    document.getElementById("stockName").innerHTML=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" "+capBadge(cap)+" • "+new Date().toLocaleTimeString("en-IN");
+    document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
