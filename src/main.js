@@ -45,6 +45,8 @@ if(!watchlists[activeWatchlist]) activeWatchlist="Default";
 let sortMode=localStorage.getItem(SORT_KEY)||"default";
 let currentSymbol="SBIN.NS";
 let currentChart=null;
+let chartSourceData=null;
+let chartRange="1Y";
 
 function saveWatchlists(){
   localStorage.setItem(WATCHLIST_KEY,JSON.stringify(watchlists));
@@ -91,7 +93,7 @@ function installDesignSystem(){
     #chart{background:linear-gradient(180deg,#07101f,#050914);box-shadow:inset 0 0 40px rgba(0,0,0,.18)}
     #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
-    .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
+    #chartToolbar button{padding:5px 9px;border:1px solid rgba(91,121,180,.18);border-radius:7px;background:#0e1429;color:#7C8DB0;font-size:9px;font-weight:800;cursor:pointer}.ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
     @media(max-width:1180px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#chart{height:300px!important}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
     @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}#watchlistSort{font-size:9px}}
@@ -122,7 +124,7 @@ function ensureUI(){
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
           <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ Watchlist</button></div></div>
-          <div id="chart" style="height:360px;margin-top:14px;border:1px solid #1e2d5a;border-radius:10px;overflow:hidden"></div>
+          <div id="chartToolbar" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding:6px 8px;background:#070d2b;border:1px solid #1e2d5a;border-bottom:none;border-radius:10px 10px 0 0"><div style="display:flex;gap:4px"><button data-range="1M">1M</button><button data-range="3M">3M</button><button data-range="6M">6M</button><button data-range="1Y">1Y</button></div><span style="font-size:9px;color:#7C8DB0">Closing-price history</span></div><div id="chart" style="height:360px;margin-top:0;border:1px solid #1e2d5a;border-radius:0 0 10px 10px;overflow:hidden"></div>
           <div class="ss-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px">
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">RSI (14)</div><div id="rsiValue" style="font-size:18px;font-weight:800">--</div><div style="height:3px;background:#1e2d5a;margin-top:6px"><div id="rsiBar" style="height:100%;width:50%;background:#00d4ff"></div></div></div>
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">SMA 20/50/200</div><div style="font-size:11px;margin-top:2px"><div>20: <b id="sma20">--</b></div><div>50: <b id="sma50">--</b></div><div>200: <b id="sma200">--</b></div></div><div id="smaStatus" style="font-size:9px;margin-top:4px"></div></div>
@@ -259,36 +261,24 @@ async function loadStock(symbol){
 }
 function renderChart(data){
   const container=document.getElementById("chart");
+  chartSourceData=data;
   if(chartResizeObserver){try{chartResizeObserver.disconnect();}catch{}chartResizeObserver=null;}
   container.innerHTML="";
   if(currentChart){try{currentChart.remove();}catch{}currentChart=null;}
+  const toolbar=document.getElementById("chartToolbar");
+  if(toolbar){
+    toolbar.querySelectorAll("[data-range]").forEach(btn=>{btn.style.background=btn.dataset.range===chartRange?"#00d4ff":"#0e1429";btn.style.color=btn.dataset.range===chartRange?"#070d2b":"#7C8DB0";btn.onclick=()=>{chartRange=btn.dataset.range;renderChart(chartSourceData);};});
+  }
   if(!data){container.innerHTML="<div style='height:100%;display:flex;align-items:center;justify-content:center;color:#ffcc00;font-size:11px'>Chart unavailable — closing-price history could not be loaded.</div>";return;}
+  const cutoffDays={ "1M":31, "3M":93, "6M":186, "1Y":370 }[chartRange]||370;
+  const cutoff=Math.floor(Date.now()/1000)-cutoffDays*86400;
   currentChart=createChart(container,{width:container.clientWidth,height:360,layout:{background:{color:"#070d2b"},textColor:"#7C8DB0"},grid:{vertLines:{color:"#17254a"},horzLines:{color:"#17254a"}},rightPriceScale:{borderColor:"#1e2d5a"},timeScale:{borderColor:"#1e2d5a",timeVisible:true}});
-  const series=currentChart.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",borderVisible:false,wickUpColor:"#22c55e",wickDownColor:"#ef4444"});
-  const candles=[];data.timestamps.forEach((ts,i)=>{const o=data.opens[i],h=data.highs[i],l=data.lows[i],c=data.closes[i];if([o,h,l,c].every(Number.isFinite))candles.push({time:ts,open:o,high:h,low:l,close:c});});series.setData(candles);
-  const vol=currentChart.addSeries(HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:""});vol.priceScale().applyOptions({scaleMargins:{top:.8,bottom:0}});vol.setData(candles.map((c,i)=>({time:c.time,value:Number(data.volumes[i])||0})));
+  const candles=[];data.timestamps.forEach((ts,i)=>{const o=data.opens[i],h=data.highs[i],l=data.lows[i],cl=data.closes[i];if(ts>=cutoff&&[o,h,l,cl].every(Number.isFinite))candles.push({time:ts,open:o,high:h,low:l,close:cl});});
+  if(!candles.length){container.innerHTML="<div style='height:100%;display:flex;align-items:center;justify-content:center;color:#7C8DB0;font-size:11px'>No closing-price history for this range.</div>";return;}
+  const series=currentChart.addSeries(CandlestickSeries,{upColor:"#22c55e",downColor:"#ef4444",borderVisible:false,wickUpColor:"#22c55e",wickDownColor:"#ef4444"});series.setData(candles);
+  const vol=currentChart.addSeries(HistogramSeries,{priceFormat:{type:"volume"},priceScaleId:""});vol.priceScale().applyOptions({scaleMargins:{top:.8,bottom:0}});
+  const volumes=data.timestamps.map((ts,i)=>({ts,value:Number(data.volumes[i])||0})).filter(x=>x.ts>=cutoff);
+  vol.setData(volumes.map(x=>({time:x.ts,value:x.value})));
   currentChart.timeScale().fitContent();
   chartResizeObserver=new ResizeObserver(()=>{if(currentChart)currentChart.applyOptions({width:Math.max(320,container.clientWidth)});});chartResizeObserver.observe(container);
 }
-async function loadIndices(){
-  const syms=[["^NSEI","NIFTY 50"],["^NSEBANK","BANK NIFTY"],["^BSESN","SENSEX"],["^CNXIT","NIFTY IT"]];
-  const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
-  document.getElementById("indices").innerHTML=values.map(x=>x.q?`<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1a274a"><div><div style="font-size:11px;font-weight:600">${x.n}</div><div style="font-size:9px;color:#7C8DB0">LIVE</div></div><div style="text-align:right"><div style="font-size:11px;font-weight:700">${x.q.price.toFixed(2)}</div><div style="font-size:9px;color:${x.pct>=0?"#00ff88":"#ff4444"}">${percent(x.pct)}</div></div></div>`:`<div style="padding:10px 0;border-bottom:1px solid #1a274a"><div style="font-size:11px;font-weight:600">${x.n}</div><div style="font-size:9px;color:#ffcc00">Live data unavailable</div></div>`).join("")+`<div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">IST ${new Date().toLocaleTimeString("en-IN")}</div>`;
-}
-async function runScreener(type){
-  const box=document.getElementById("screenerBox"),res=document.getElementById("screenerResults");box.style.display="block";res.innerHTML="Scanning live data...";
-  const values=await Promise.all(TICKERS.slice(0,30).map(async t=>{try{const q=await getQuote(t+".NS");const rsi=calcRSIForScreen(q.closes);return {symbol:t,nse:t+".NS",price:q.price,pct:(q.price-q.prev)/q.prev*100,rsi};}catch{return null;}}));
-  const filtered=values.filter(Boolean).filter(r=>type==="BUY"?r.rsi<45:r.rsi<35).sort((a,b)=>a.rsi-b.rsi);
-  res.innerHTML=`<div style="color:#00ff88;font-size:11px">${filtered.length} FOUND</div>`+filtered.map(s=>`<div style="display:flex;justify-content:space-between;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="${s.nse}"><span><b>${s.symbol}</b> RSI ${s.rsi.toFixed(1)}</span><span style="color:${s.pct>=0?"#00ff88":"#ff4444"}">${money(s.price)} ${percent(s.pct)}</span></div>`).join("");
-  res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
-}
-function calcRSIForScreen(c){if(c.length<15)return 50;let g=0,l=0;for(let i=c.length-14;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)g+=d;else l-=d;}return l===0?100:100-(100/(1+g/l));}
-function setupScreener(){document.getElementById("scanBuy").onclick=()=>runScreener("BUY");document.getElementById("scanOversold").onclick=()=>runScreener("OVERSOLD");}
-function loadStockGlobal(symbol){loadStock(symbol);document.getElementById("searchResults").style.display="none";}
-window.loadStockGlobal=loadStockGlobal;
-async function init(){
-  ensureUI();setupSearch();setupWatchlistControls();setupPortfolio();setupScreener();loadPortfolio();
-  await Promise.all([loadStock(currentSymbol),renderWatchlist(),loadIndices()]);
-  setInterval(()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));},1000);
-}
-init();
