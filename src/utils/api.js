@@ -125,6 +125,18 @@ export async function getNews(symbol){
   }));
 }
 
+export async function searchSymbols(query){
+  const q=String(query||"").trim();
+  if(!q) return [];
+  const json=await fetchYahoo(YAHOO_SEARCH+encodeURIComponent(q)+"&quotesCount=15&newsCount=0");
+  return (json?.quotes||[]).filter(x=>x?.symbol&&/\.(NS|BO)$/i.test(x.symbol)).map(x=>({symbol:x.symbol.toUpperCase(),display:x.symbol.replace(/\.(NS|BO)$/i,""),name:x.longname||x.shortname||x.symbol,exchange:x.exchange==="BSE"||x.symbol.endsWith(".BO")?"BSE":"NSE",cap:null}));
+}
+
+export async function getMarketCap(symbol){
+  const fund=await getFundamentals(symbol);
+  return {marketCap:fund.mcap,cap:classifyMarketCap(fund.mcap)};
+}
+
 export async function fetchLivePrice(symbol){
   const q=await getQuote(symbol);
   return {price:"₹"+q.price.toFixed(2),changePct:((q.price-q.prev)/q.prev*100).toFixed(2)};
