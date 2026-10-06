@@ -322,8 +322,7 @@ async function loadStock(symbol){
     setText("analysisScore",(rsi==null?"--":score+"/100"));
     const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=rsi==null?"0%":score+"%";scoreFill.style.background=score>=70?"#22c55e":score>=45?"#f59e0b":"#ef4444";}
     setText("smaLongStatus",trend50_200);
-    setText("peValue","P/E "+(Number.isFinite(data.fund.pe)?data.fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(data.fund.mcap));setText("betaValue","Beta "+(Number.isFinite(data.fund.beta)?data.fund.beta.toFixed(2):"--"));
-    setText("divValue","Div "+(Number.isFinite(data.fund.div)?data.fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(data.fund.pm)?data.fund.pm.toFixed(1)+"%":"--"));setText("yearValue","Year "+(Number.isFinite(data.yearChange)?percent(data.yearChange):"--"));
+    setText("yearValue","Year "+(Number.isFinite(data.yearChange)?percent(data.yearChange):"--"));
     
 function renderFinancials(fund){
   const quarters=(fund?.quarterlyRows||[]).filter(r=>r?.date).slice(0,8);
@@ -342,7 +341,7 @@ function renderFinancials(fund){
       setText("fundSource",fund?.source||"Company financial data");
       setText("f_pe",Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--");setText("f_eps",Number.isFinite(fund?.eps)?money(fund.eps):"--");setText("f_mcap",formatCompactNumber(fund?.mcap));setText("f_book",Number.isFinite(fund?.bookValue)?money(fund.bookValue):"--");setText("f_div",Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--");setText("f_roe",Number.isFinite(fund?.roe)?fund.roe.toFixed(1)+"%":"--");setText("f_roa",Number.isFinite(fund?.roa)?fund.roa.toFixed(1)+"%":"--");setText("f_de",Number.isFinite(fund?.debtEquity)?fund.debtEquity.toFixed(1):"--");setText("f_rg",Number.isFinite(fund?.revenueGrowth)?fund.revenueGrowth.toFixed(1)+"%":"--");setText("f_eg",Number.isFinite(fund?.earningsGrowth)?fund.earningsGrowth.toFixed(1)+"%":"--");setText("f_om",Number.isFinite(fund?.operatingMargin)?fund.operatingMargin.toFixed(1)+"%":"--");setText("f_pm",Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--");setText("f_rev",formatCompactNumber(fund?.totalRevenue));setText("f_ni",formatCompactNumber(fund?.netIncome));setText("f_fcf",formatCompactNumber(fund?.freeCashFlow));setText("f_beta",Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--");
       setText("peValue","P/E "+(Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(fund?.mcap));setText("betaValue","Beta "+(Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--"));
-      setText("divValue","Div "+(Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--");
+      setText("divValue","Div "+(Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--"));
     };
     applyFundamentals(data.fund);
     getFundamentals(symbol).then(fund=>{if(requestId===stockRequestId)applyFundamentals(fund);}).catch(()=>{});
@@ -357,23 +356,14 @@ function renderFinancials(fund){
   }
 }
 async function loadIndices(){
-  const syms=[
-    ["^NSEI","NIFTY 50"],["^CNX100","NIFTY 100"],["^CNX500","NIFTY 500"],["NIFTYMIDCAP150.NS","NIFTY Midcap 150"],
-    ["^NSEBANK","NIFTY Bank"],["^CNXFIN","NIFTY Financial Services"],["^CNXIT","NIFTY IT"],["^CNXAUTO","NIFTY Auto"],
-    ["^CNXPHARMA","NIFTY Pharma"],["^CNXFMCG","NIFTY FMCG"],["^CNXMETAL","NIFTY Metal"],["^CNXREALTY","NIFTY Realty"],
-    ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
-    ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
-  ];
   try{
     const response=await fetch("/api/market-overview",{cache:"no-store"});
-    if(response.ok){
-      const values=await response.json();
-      document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
-      return;
-    }
-  }catch{}
-  document.getElementById("indices").innerHTML='<div style="padding:12px;color:#7C8DB0;font-size:10px">Market overview is temporarily unavailable. No estimated values are shown.</div>';
-  document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+    if(!response.ok) throw new Error("Market overview unavailable");
+    const values=await response.json();
+    document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+  }catch{
+    document.getElementById("indices").innerHTML='<div style="padding:12px;color:#7C8DB0;font-size:10px">Market overview is temporarily unavailable. No estimated values are shown.</div>';
+  }
 }
 function calcRSIForScreen(c){
   if(!Array.isArray(c)||c.length<15)return 50;
