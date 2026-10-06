@@ -137,7 +137,10 @@ function buildFinancialRows(results,periodType){
 }
 async function getNseFundamentals(symbol){
   const base=symbol.replace(/\.(NS|BO)$/i,"").toUpperCase();
-  const response=await fetch("/api/fundamentals?symbol="+encodeURIComponent(base),{cache:"no-store"});
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),7000);
+  const response=await fetch("/api/fundamentals?symbol="+encodeURIComponent(base),{cache:"no-store",signal:controller.signal});
+  clearTimeout(timer);
   if(!response.ok) throw new Error("NSE fundamentals endpoint returned "+response.status);
   return response.json();
 }
