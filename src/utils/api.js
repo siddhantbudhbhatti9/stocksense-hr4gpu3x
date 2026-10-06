@@ -176,12 +176,6 @@ function annualRowsSafe(results){
   return buildFinancialRows(results,"annual");
 }
 
-buildFinancialRows(quarterly,"quarterly"),
-    latestPeriod:latestRevenue.date||latestEps.date||null,
-    source:"Yahoo Finance fundamentals time series"
-  };
-}
-
 export function calcRSI(closes){
   if(closes.length<15) return null;
   let gains=0, losses=0;
