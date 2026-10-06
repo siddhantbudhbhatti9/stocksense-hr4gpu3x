@@ -10,5 +10,8 @@
   },
   "devDependencies": {
     "vite": "^8.3.1"
+  },
+  "dependencies": {
+    "lightweight-charts": "^5.2.1"
   }
 }
