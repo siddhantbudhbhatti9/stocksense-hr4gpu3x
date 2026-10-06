@@ -356,14 +356,15 @@ function renderFinancials(fund){
   }
 }
 async function loadIndices(){
-  try{
-    const response=await fetch("/api/market-overview",{cache:"no-store"});
-    if(!response.ok) throw new Error("Market overview unavailable");
-    const values=await response.json();
-    document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
-  }catch{
-    document.getElementById("indices").innerHTML='<div style="padding:12px;color:#7C8DB0;font-size:10px">Market overview is temporarily unavailable. No estimated values are shown.</div>';
-  }
+  const syms=[
+    ["^NSEI","NIFTY 50"],["^CNX100","NIFTY 100"],["^CNX500","NIFTY 500"],["NIFTYMIDCAP150.NS","NIFTY Midcap 150"],
+    ["^NSEBANK","NIFTY Bank"],["^CNXFIN","NIFTY Financial Services"],["^CNXIT","NIFTY IT"],["^CNXAUTO","NIFTY Auto"],
+    ["^CNXPHARMA","NIFTY Pharma"],["^CNXFMCG","NIFTY FMCG"],["^CNXMETAL","NIFTY Metal"],["^CNXREALTY","NIFTY Realty"],
+    ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
+    ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
+  ];
+  const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
+  document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
 }
 function calcRSIForScreen(c){
   if(!Array.isArray(c)||c.length<15)return 50;
