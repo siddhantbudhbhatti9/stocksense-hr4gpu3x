@@ -8,6 +8,12 @@ const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
 const YAHOO_QUOTE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
 const YAHOO_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 
+const quoteCache=new Map();
+const quoteInFlight=new Map();
+const fundCache=new Map();
+const newsCache=new Map();
+const CACHE_MS=30000;
+
 async function fetchYahoo(url){
   for(const proxy of PROXIES){
     try{
@@ -22,8 +28,13 @@ async function fetchYahoo(url){
 }
 
 export async function getQuote(symbol){
-  const url=YAHOO_CHART+encodeURIComponent(symbol)+"?interval=1d&range=1y&events=history";
-  const json=await fetchYahoo(url);
+  const key=String(symbol).toUpperCase();
+  const cached=quoteCache.get(key);
+  if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
+  if(quoteInFlight.has(key)) return quoteInFlight.get(key);
+  const promise=(async()=>{
+    const url=YAHOO_CHART+encodeURIComponent(symbol)+"?interval=1d&range=1y&events=history";
+    const json=await fetchYahoo(url);
   const result=json?.chart?.result?.[0];
   const meta=result?.meta;
   const quote=result?.indicators?.quote?.[0];
@@ -34,7 +45,7 @@ export async function getQuote(symbol){
   const price=closes[closes.length-1];
   const prev=closes[closes.length-2];
   if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) throw new Error("Incomplete live market data for "+symbol);
-  return {
+  const data={
     symbol, price, prev, closes,
     timestamps:result.timestamp||[],
     opens:quote?.open||[], highs:quote?.high||[], lows:quote?.low||[], volumes:quote?.volume||[],
@@ -44,6 +55,11 @@ export async function getQuote(symbol){
     high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:Math.max(...closes),
     low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:Math.min(...closes)
   };
+    quoteCache.set(key,{time:Date.now(),data});
+    return data;
+  })();
+  quoteInFlight.set(key,promise);
+  try{return await promise;}finally{quoteInFlight.delete(key);}
 }
 
 function rawValue(node){
@@ -156,6 +172,9 @@ function mapNseFundamentals(data,quote){
 }
 
 export async function getFundamentals(symbol){
+  const key=String(symbol).toUpperCase();
+  const cached=fundCache.get(key);
+  if(cached && Date.now()-cached.time<6*60*60*1000) return cached.data;
   let quote=null;
   try{
     const q=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
@@ -163,9 +182,13 @@ export async function getFundamentals(symbol){
   }catch{}
   try{
     const nse=await getNseFundamentals(symbol);
-    return mapNseFundamentals(nse,quote);
+    const data=mapNseFundamentals(nse,quote);
+    fundCache.set(key,{time:Date.now(),data});
+    return data;
   }catch{
-    return await getYahooFundamentals(symbol);
+    const data=await getYahooFundamentals(symbol);
+    fundCache.set(key,{time:Date.now(),data});
+    return data;
   }
 }
 
@@ -286,8 +309,8 @@ export function formatCompactNumber(value){
   return value.toLocaleString("en-IN");
 }
 
-export async function getStockData(symbol){
-  const [quote,fund] = await Promise.all([getQuote(symbol),getFundamentals(symbol)]);
+export async function getFastStockData(symbol){
+  const quote=await getQuote(symbol);
   const rsi=calcRSI(quote.closes);
   const sma20=calcSMA(quote.closes,20);
   const sma50=calcSMA(quote.closes,50);
@@ -298,21 +321,29 @@ export async function getStockData(symbol){
     change:quote.price-quote.prev,
     changePct:((quote.price-quote.prev)/quote.prev)*100,
     rsi,sma20,sma50,sma200,
-    yearChange:first ? ((quote.price-first)/first)*100 : null,
-    fund,
-    cap:classifyMarketCap(fund.mcap)
+    yearChange:first ? ((quote.price-first)/first)*100 : null
   };
 }
 
+export async function getStockData(symbol){
+  const [fast,fund]=await Promise.all([getFastStockData(symbol),getFundamentals(symbol)]);
+  return {...fast,fund};
+}
+
 export async function getNews(symbol){
+  const key=String(symbol).toUpperCase();
+  const cached=newsCache.get(key);
+  if(cached && Date.now()-cached.time<5*60*1000) return cached.data;
   const base=symbol.replace(/\.(NS|BO)$/,"");
   const json=await fetchYahoo(YAHOO_SEARCH+encodeURIComponent(base)+"&newsCount=6");
-  return (json?.news||[]).filter(item=>item?.title).slice(0,6).map(item=>({
+  const data=(json?.news||[]).filter(item=>item?.title).slice(0,6).map(item=>({
     title:item.title,
     publisher:item.publisher||"Yahoo Finance",
     link:item.link||null,
     published:item.providerPublishTime ? new Date(item.providerPublishTime*1000) : null
   }));
+  newsCache.set(key,{time:Date.now(),data});
+  return data;
 }
 
 export async function searchSymbols(query){
