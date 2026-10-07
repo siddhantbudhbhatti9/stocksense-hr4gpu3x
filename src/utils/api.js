@@ -462,7 +462,8 @@ export async function getNews(symbol){
   const cached=newsCache.get(key);
   if(cached && Date.now()-cached.time<5*60*1000) return cached.data;
   const base=symbol.replace(/\.(NS|BO)$/,"");
-  const json=await fetchYahoo(YAHOO_SEARCH+encodeURIComponent(base)+"&newsCount=6");
+  const query=key==="MARKET"?"stock market India global markets":base;
+  const json=await fetchYahoo(YAHOO_SEARCH+encodeURIComponent(query)+"&newsCount=8");
   const data=(json?.news||[]).filter(item=>item?.title).slice(0,6).map(item=>({
     title:item.title,
     publisher:item.publisher||"Yahoo Finance",
