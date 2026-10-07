@@ -64,6 +64,14 @@ function installDesignSystem(){
         #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
      .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
+    .ss-global-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .ss-global-card{background:#0e1429;border:1px solid rgba(91,121,180,.16);border-radius:11px;padding:12px}
+    .ss-global-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+    .ss-global-name{font-size:10px;font-weight:850}.ss-global-region{font-size:8px;color:#7185aa;margin-top:2px}
+    .ss-global-price{font-size:16px;font-weight:900;margin-top:10px}.ss-global-change{font-size:9px;font-weight:800}
+    .ss-global-time{margin-top:9px;padding-top:8px;border-top:1px solid rgba(91,121,180,.12);font-size:8px;color:#7C8DB0;line-height:13px}
+    @media(max-width:900px){.ss-global-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:560px){.ss-global-grid{grid-template-columns:1fr}}
     .ss-index-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.ss-index-card{background:#0e1429;border:1px solid rgba(91,121,180,.14);border-radius:9px;padding:8px;display:flex;justify-content:space-between;align-items:center;min-height:52px}.ss-index-name{font-size:9px;color:#a9b9d6;line-height:12px}.ss-index-price{font-size:11px;font-weight:800;margin-top:2px}.ss-index-change{font-size:9px;font-weight:800;margin-left:6px}@media(max-width:520px){.ss-index-grid{grid-template-columns:1fr}}
     .ss-analysis{margin-top:12px;display:grid;grid-template-columns:1.15fr .85fr;gap:10px}
     .ss-analysis-card{background:linear-gradient(180deg,rgba(9,16,34,.96),rgba(6,11,24,.96));border:1px solid rgba(91,121,180,.18);border-radius:12px;padding:12px}
@@ -99,7 +107,12 @@ function ensureUI(){
       <div style="flex:1;max-width:440px;position:relative"><input id="searchAll" placeholder="Search stocks, symbols or company names…" style="width:100%;padding:10px 16px;background:#070d2b;color:white;border:1px solid #1e2d5a;border-radius:20px;outline:none;font-size:13px"/><div id="searchResults" style="position:absolute;top:44px;left:0;right:0;z-index:9999;background:#0f172f;border:1px solid #1e2d5a;border-radius:12px;max-height:320px;overflow:auto;display:none"></div></div>
       <div id="ss-header-actions" style="display:flex;gap:8px;align-items:center"><div id="marketStatus" style="font-size:11px;padding:7px 12px;background:#121a33;border:1px solid #1e2d5a;border-radius:20px">--</div></div>
     </div>
-    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr 420px;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
+    <div id="ss-tabs" style="max-width:1450px;margin:0 auto;padding:12px 16px 0;display:flex;gap:8px">
+      <button id="tabDashboard" type="button" style="padding:9px 18px;border-radius:10px;border:1px solid #00d4ff;background:#00d4ff;color:#06101f;font-size:11px;font-weight:850;cursor:pointer">Dashboard</button>
+      <button id="tabMarket" type="button" style="padding:9px 18px;border-radius:10px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:11px;font-weight:850;cursor:pointer">Market Overview</button>
+    </div>
+    <div id="ss-dashboard-view">
+    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
       <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:850">My Portfolio</div><div id="portfolioCount" style="font-size:9px;color:#7C8DB0">0 / 30 stocks tracked</div></div></div></div>
         <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Search symbol to add" style="flex:1;padding:8px 12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="portfolioSearchBtn" style="padding:8px 12px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+ Add</button></div><div style="font-size:9px;color:#7C8DB0;margin-top:6px">Add up to 30 NSE/BSE stocks.</div></div>
@@ -172,15 +185,26 @@ function ensureUI(){
             <div id="annualFinancialTable" style="margin-top:6px;overflow:auto"></div>
             <div id="financialMeta" style="margin-top:8px;font-size:8px;color:#60759d"></div>
           </div>
-          <div style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📰 NEWS - LAST CLOSE</div><div id="newsBox" style="margin-top:6px;font-size:11px"></div></div>
           <div id="screenerBox" style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:12px;padding:12px;display:none"><div style="font-size:11px;font-weight:700">Screener Results</div><div id="screenerResults" style="max-height:200px;overflow:auto;margin-top:8px"></div></div>
         </div>
       </div>
-      <div id="ss-right-panel" class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:12px"><div style="display:flex;justify-content:space-between"><h3 style="margin:0;font-size:11px">📊 Market Overview</h3><span style="font-size:9px;color:#8fb8ff">LAST CLOSE</span></div><div id="indices" style="margin-top:10px">Loading market data…</div></div>
+    </div>
+    </div>
+    <div id="ss-market-view" style="display:none;max-width:1450px;margin:0 auto;padding:16px">
+      <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:14px;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap">
+          <div><div style="font-size:16px;font-weight:900">Market Overview</div><div style="font-size:10px;color:#7C8DB0;margin-top:3px">Indian and global market indices with live status and trading hours.</div></div>
+          <div id="globalMarketUpdated" style="font-size:9px;color:#7C8DB0">--</div>
+        </div>
+        <div id="globalIndices" class="ss-global-grid" style="margin-top:14px"></div>
+      </div>
+      <div class="ss-card" style="margin-top:12px;background:#121a33;border:1px solid #1e2d5a;border-radius:14px;padding:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;font-weight:900">Latest News</div><div id="newsContext" style="font-size:9px;color:#7C8DB0;margin-top:3px">News for the selected stock</div></div><span style="font-size:9px;color:#8fb8ff">LIVE FEED</span></div>
+        <div id="newsBox" style="margin-top:10px;font-size:11px"></div>
+      </div>
     </div>
     <div style="background:#1a1400;border-top:1px solid #3d3000;padding:12px 16px;text-align:center"><div style="font-size:11px;color:#ffcc66;line-height:16px;max-width:900px;margin:0 auto"><b>⚠️ Disclaimer:</b> This app is a hobby project, made for educational purpose only. Do your own market research before investing or trading. We are not SEBI registered. Market data may be delayed.</div></div>
   </div>`;
-  document.getElementById("watchlistSort").value=sortMode;
 }
 
 async function renderPortfolio(){
@@ -299,6 +323,44 @@ function renderFinancials(fund){
     setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";console.warn("[StockSense]",error);
   }
 }
+function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
+  const now=new Date();
+  const parts=new Intl.DateTimeFormat("en-GB",{timeZone,hour:"2-digit",minute:"2-digit",hour12:false,weekday:"short"}).formatToParts(now);
+  const get=t=>parts.find(p=>p.type===t)?.value;
+  const day=get("weekday"),h=Number(get("hour")),m=Number(get("minute"));
+  const mins=h*60+m,open=openHour*60+openMinute,close=closeHour*60+closeMinute;
+  const weekday=day!=="Sat"&&day!=="Sun";
+  return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute")};
+}
+async function loadGlobalMarket(){
+  const markets=[
+    ["^NSEI","NIFTY 50","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
+    ["^BSESN","SENSEX","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
+    ["^GSPC","S&P 500","USA","America/New_York","09:30–16:00 ET",9,30,16,0],
+    ["^IXIC","NASDAQ","USA","America/New_York","09:30–16:00 ET",9,30,16,0],
+    ["^DJI","Dow Jones","USA","America/New_York","09:30–16:00 ET",9,30,16,0],
+    ["^FTSE","FTSE 100","UK","Europe/London","08:00–16:30 GMT/BST",8,0,16,30],
+    ["^GDAXI","DAX","Germany","Europe/Berlin","09:00–17:30 CET/CEST",9,0,17,30],
+    ["^N225","Nikkei 225","Japan","Asia/Tokyo","09:00–15:30 JST",9,0,15,30],
+    ["^HSI","Hang Seng","Hong Kong","Asia/Hong_Kong","09:30–16:00 HKT",9,30,16,0],
+    ["000001.SS","Shanghai Composite","China","Asia/Shanghai","09:30–15:00 CST",9,30,15,0]
+  ];
+  const box=document.getElementById("globalIndices"); if(!box)return;
+  box.innerHTML=markets.map(m=>'<div class="ss-global-card"><div class="ss-global-top"><div><div class="ss-global-name">'+escapeHtml(m[1])+'</div><div class="ss-global-region">'+escapeHtml(m[2])+'</div></div><span data-status="'+escapeHtml(m[0])+'" style="font-size:8px;color:#7C8DB0">--</span></div><div data-price="'+escapeHtml(m[0])+'" class="ss-global-price">--</div><div data-change="'+escapeHtml(m[0])+'" class="ss-global-change">--</div><div class="ss-global-time">Trading hours: '+escapeHtml(m[4])+'<br><span data-clock="'+escapeHtml(m[0])+'">Local time --</span></div></div>').join("");
+  const quotes=await getQuotesBatch(markets.map(m=>m[0]));
+  for(const m of markets){
+    const q=quotes.get(m[0].toUpperCase()), state=marketState(m[3],m[5],m[6],m[7],m[8]);
+    const price=document.querySelector('[data-price="'+CSS.escape(m[0])+'"]');
+    const change=document.querySelector('[data-change="'+CSS.escape(m[0])+'"]');
+    const status=document.querySelector('[data-status="'+CSS.escape(m[0])+'"]');
+    const clock=document.querySelector('[data-clock="'+CSS.escape(m[0])+'"]');
+    if(price)price.textContent=q?money(q.price):"--";
+    if(change){change.textContent=q?percent(q.changePct):"Data unavailable";change.style.color=q?(q.changePct>=0?"#00ff88":"#ff4444"):"#7C8DB0";}
+    if(status){status.textContent=state.open?"OPEN":"CLOSED";status.style.color=state.open?"#00ff88":"#7C8DB0";}
+    if(clock)clock.textContent="Local time "+state.time;
+  }
+  setText("globalMarketUpdated","Updated "+new Date().toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"})+" IST");
+}
 async function loadIndices(){
   const syms=[
     ["^NSEI","NIFTY 50"],["^CNX100","NIFTY 100"],["^CNX500","NIFTY 500"],["NIFTYMIDCAP150.NS","NIFTY Midcap 150"],
@@ -352,7 +414,10 @@ async function init(){
   setupPortfolio();
   loadPortfolio();
   loadStock(currentSymbol);
-  loadIndices();
+  loadGlobalMarket();
+  const setTab=(tab)=>{const dash=document.getElementById("ss-dashboard-view"),market=document.getElementById("ss-market-view"),d=document.getElementById("tabDashboard"),m=document.getElementById("tabMarket");const isMarket=tab==="market";dash.style.display=isMarket?"none":"";market.style.display=isMarket?"":"none";d.style.background=isMarket?"#121a33":"#00d4ff";d.style.color=isMarket?"#9fb0cf":"#06101f";m.style.background=isMarket?"#00d4ff":"#121a33";m.style.color=isMarket?"#06101f":"#9fb0cf";if(isMarket)loadGlobalMarket();};
+  document.getElementById("tabDashboard").onclick=()=>setTab("dashboard");
+  document.getElementById("tabMarket").onclick=()=>setTab("market");
   const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
   updateMarketStatus();
   setInterval(updateMarketStatus,1000);
