@@ -54,7 +54,7 @@ export async function getTechnicalData(symbol){
   const quote=result?.indicators?.quote?.[0];
   const closes=(quote?.close||[]).filter(Number.isFinite);
   if(!result || closes.length<2) throw new Error("Technical history unavailable for "+symbol);
-  const data={closes,timestamps:result.timestamp||[]};
+  const data={closes,timestamps:result.timestamp||[],opens:quote?.open||[],highs:quote?.high||[],lows:quote?.low||[],volumes:quote?.volume||[]};
   quoteCache.set("technical:"+key,{time:Date.now(),data});
   return data;
 }
@@ -423,12 +423,24 @@ export function calcSMA(closes,period){
   return closes.slice(-period).reduce((a,b)=>a+b,0)/period;
 }
 
-export function getAISignal(rsi,sma20,sma50){
-  if(rsi==null) return {t:"UNAVAILABLE",c:"#ffcc00"};
-  if(rsi<30) return {t:"STRONG BUY",c:"#00ff88"};
-  if(rsi<45 && sma20!=null && sma50!=null && sma20>sma50) return {t:"BUY",c:"#00ff88"};
-  if(rsi>70) return {t:"STRONG SELL",c:"#ff4444"};
-  return {t:"HOLD",c:"#ffcc00"};
+export function getAISignal(tech){
+  if(!tech || !Number.isFinite(tech.rsi)) return {t:"UNAVAILABLE",c:"#ffcc00",score:50,desc:"Technical data is unavailable"};
+  let score=50;
+  if(Number.isFinite(tech.sma20)) score += tech.price>tech.sma20?8:-8;
+  if(Number.isFinite(tech.sma50)&&Number.isFinite(tech.sma20)) score += tech.sma20>tech.sma50?10:-10;
+  if(Number.isFinite(tech.sma200)&&Number.isFinite(tech.sma50)) score += tech.sma50>tech.sma200?10:-10;
+  if(Number.isFinite(tech.ema50)&&Number.isFinite(tech.ema20)) score += tech.ema20>tech.ema50?7:-7;
+  if(tech.rsi<30) score+=12; else if(tech.rsi<45) score+=4; else if(tech.rsi>75) score-=12; else if(tech.rsi>70) score-=6;
+  if(Number.isFinite(tech.macd)&&Number.isFinite(tech.macdSignal)) score += tech.macd>tech.macdSignal?8:-8;
+  if(Number.isFinite(tech.stoch)){if(tech.stoch<20)score+=6;else if(tech.stoch>80)score-=6;}
+  if(Number.isFinite(tech.bbPos)){if(tech.bbPos<15)score+=5;else if(tech.bbPos>85)score-=5;}
+  if(Number.isFinite(tech.volumeRatio)){if(tech.volumeRatio>1.5)score += score>=50?4:-4;}
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  if(score>=80)return {t:"STRONG BUY",c:"#00ff88",score,desc:"Strong bullish alignment across trend, momentum and participation"};
+  if(score>=62)return {t:"BUY",c:"#22c55e",score,desc:"Bullish technical evidence outweighs bearish signals"};
+  if(score<=20)return {t:"STRONG SELL",c:"#ff4444",score,desc:"Strong bearish alignment across trend, momentum and participation"};
+  if(score<=38)return {t:"SELL",c:"#f87171",score,desc:"Bearish technical evidence outweighs bullish signals"};
+  return {t:"HOLD",c:"#ffcc00",score,desc:"Signals are mixed; wait for stronger confirmation"};
 }
 
 export function classifyMarketCap(marketCap){
