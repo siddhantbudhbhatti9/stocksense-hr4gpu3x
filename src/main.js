@@ -291,10 +291,16 @@ async function loadStock(symbol){
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
     setText("rsiValue","Loading…");setText("sma20","Loading…");setText("sma50","Loading…");setText("sma200","Loading…");
     let technical=null;
-    try{ technical=await getTechnicalData(symbol); }catch(error){ console.warn("[StockSense] technical data",error); }
+    if(Array.isArray(data.closes)&&data.closes.length>=20){
+      technical=data;
+    }else{
+      try{ technical=await getTechnicalData(symbol); }catch(error){ console.warn("[StockSense] technical data",error); }
+    }
     if(requestId!==stockRequestId)return;
     const closes=technical?.closes||[];
     data.closes=closes; data.highs=technical?.highs||[]; data.lows=technical?.lows||[]; data.volumes=technical?.volumes||[];
+    if(!Number.isFinite(data.low52)&&data.closes.length) data.low52=Math.min(...data.closes);
+    if(!Number.isFinite(data.high52)&&data.closes.length) data.high52=Math.max(...data.closes);
     const tech=technicalSnapshot(data);
     Object.assign(data,tech);
     setText("rsiValue",Number.isFinite(tech.rsi)?tech.rsi.toFixed(1):"--");
