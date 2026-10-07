@@ -13,6 +13,7 @@ const quoteInFlight=new Map();
 const batchQuoteCache=new Map();
 const batchQuoteInFlight=new Map();
 const fundCache=new Map();
+const fundFastCache=new Map();
 const newsCache=new Map();
 const CACHE_MS=30000;
 const BATCH_CACHE_MS=30000;
@@ -217,7 +218,7 @@ function buildFinancialRows(results,periodType){
 async function getNseFundamentals(symbol){
   const base=symbol.replace(/\.(NS|BO)$/i,"").toUpperCase();
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),7000);
+  const timer=setTimeout(()=>controller.abort(),20000);
   const response=await fetch("/api/fundamentals?symbol="+encodeURIComponent(base),{cache:"no-store",signal:controller.signal});
   clearTimeout(timer);
   if(!response.ok) throw new Error("NSE fundamentals endpoint returned "+response.status);
@@ -232,6 +233,32 @@ function mapNseFundamentals(data,quote){
   const invested=Number.isFinite(equity)&&Number.isFinite(debt)&&Number.isFinite(cash)?equity+debt-cash:null;
   const roce=Number.isFinite(latest.ebitda)&&Number.isFinite(invested)&&invested!==0?latest.ebitda/invested*100:null;
   return {pe:Number.isFinite(quote?.trailingPE)?quote.trailingPE:null,mcap:Number.isFinite(quote?.marketCap)?quote.marketCap:null,pb:Number.isFinite(quote?.priceToBook)?quote.priceToBook:null,eps:latest.eps??latestAnnual.eps??quote?.epsTrailingTwelveMonths??null,bookValue:Number.isFinite(equity)&&Number.isFinite(quote?.sharesOutstanding)&&quote.sharesOutstanding>0?equity/quote.sharesOutstanding:null,div:Number.isFinite(quote?.dividendYield)?quote.dividendYield*100:null,roe,roa:null,roce,debtEquity:latest.debtEquity??latestAnnual.debtEquity??(Number.isFinite(debt)&&Number.isFinite(equity)&&equity!==0?debt/equity:null),revenueGrowth,earningsGrowth,operatingMargin:latest.operatingMargin??latestAnnual.operatingMargin??null,pm:latest.netMargin??latestAnnual.netMargin??null,totalRevenue:latest.revenue??latestAnnual.revenue??null,netIncome:pat??null,ebitda:latest.ebitda??latestAnnual.ebitda??null,freeCashFlow:null,totalDebt:debt??null,cashTotal:cash??null,annualRows:annual,quarterlyRows:quarterly,latestPeriod:latest.date??latestAnnual.date??null,source:"NSE Integrated Filing - Financials",exchange:"NSE",mode:data.mode||"Standalone",sourceUrl:data?.filings?.[0]?.filing?.sourceUrl||null,updatedAt:data.updatedAt||null};
+}
+
+export async function getFastFundamentals(symbol){
+  const key=String(symbol).toUpperCase();
+  const cached=fundFastCache.get(key);
+  if(cached && Date.now()-cached.time<5*60*1000) return cached.data;
+  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
+  const q=json?.quoteResponse?.result?.[0]||{};
+  if(!Object.keys(q).length) throw new Error("Fast fundamentals unavailable for "+symbol);
+  const data={
+    pe:Number.isFinite(q.trailingPE)?q.trailingPE:null,
+    mcap:Number.isFinite(q.marketCap)?q.marketCap:null,
+    pb:Number.isFinite(q.priceToBook)?q.priceToBook:null,
+    eps:Number.isFinite(q.epsTrailingTwelveMonths)?q.epsTrailingTwelveMonths:null,
+    bookValue:Number.isFinite(q.bookValue)?q.bookValue:null,
+    div:Number.isFinite(q.dividendYield)?q.dividendYield*100:null,
+    beta:Number.isFinite(q.beta)?q.beta:null,
+    roe:null,roa:null,roce:null,debtEquity:null,
+    revenueGrowth:null,earningsGrowth:null,operatingMargin:null,pm:null,
+    totalRevenue:null,netIncome:null,ebitda:null,freeCashFlow:null,totalDebt:null,cashTotal:null,
+    annualRows:[],quarterlyRows:[],latestPeriod:null,
+    source:"Yahoo Finance quote (fast)",
+    exchange:"Yahoo"
+  };
+  fundFastCache.set(key,{time:Date.now(),data});
+  return data;
 }
 
 export async function getFundamentals(symbol){
