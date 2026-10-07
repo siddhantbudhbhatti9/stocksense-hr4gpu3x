@@ -10,9 +10,12 @@ const YAHOO_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 
 const quoteCache=new Map();
 const quoteInFlight=new Map();
+const batchQuoteCache=new Map();
+const batchQuoteInFlight=new Map();
 const fundCache=new Map();
 const newsCache=new Map();
 const CACHE_MS=30000;
+const BATCH_CACHE_MS=30000;
 
 async function fetchYahoo(url){
   for(const proxy of PROXIES){
@@ -60,6 +63,66 @@ export async function getQuote(symbol){
   })();
   quoteInFlight.set(key,promise);
   try{return await promise;}finally{quoteInFlight.delete(key);}
+}
+
+function normalizeBatchQuote(q){
+  const price=Number.isFinite(q?.regularMarketPrice)?q.regularMarketPrice:null;
+  const prev=Number.isFinite(q?.regularMarketPreviousClose)?q.regularMarketPreviousClose:null;
+  if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) return null;
+  return {
+    symbol:String(q.symbol||"").toUpperCase(),
+    price,prev,
+    change:price-prev,
+    changePct:(price-prev)/prev*100,
+    high:Number.isFinite(q.regularMarketDayHigh)?q.regularMarketDayHigh:null,
+    low:Number.isFinite(q.regularMarketDayLow)?q.regularMarketDayLow:null,
+    vol:Number.isFinite(q.regularMarketVolume)?q.regularMarketVolume:null,
+    high52:Number.isFinite(q.fiftyTwoWeekHigh)?q.fiftyTwoWeekHigh:null,
+    low52:Number.isFinite(q.fiftyTwoWeekLow)?q.fiftyTwoWeekLow:null
+  };
+}
+
+export async function getQuotesBatch(symbols){
+  const unique=[...new Set((symbols||[]).map(s=>String(s).toUpperCase()).filter(Boolean))];
+  if(!unique.length) return new Map();
+  const key=unique.slice().sort().join(",");
+  const cached=batchQuoteCache.get(key);
+  if(cached && Date.now()-cached.time<BATCH_CACHE_MS) return cached.data;
+  if(batchQuoteInFlight.has(key)) return batchQuoteInFlight.get(key);
+  const promise=(async()=>{
+    const url=YAHOO_QUOTE+encodeURIComponent(unique.join(","));
+    const json=await fetchYahoo(url);
+    const result=new Map();
+    for(const q of (json?.quoteResponse?.result||[])){
+      const normalized=normalizeBatchQuote(q);
+      if(normalized) result.set(normalized.symbol,normalized);
+    }
+    batchQuoteCache.set(key,{time:Date.now(),data:result});
+    return result;
+  })();
+  batchQuoteInFlight.set(key,promise);
+  try{
+    const result=await promise;
+    if(result.size===unique.length) return result;
+    // A partial batch is still useful; fill only missing symbols individually.
+    await Promise.all(unique.filter(s=>!result.has(s)).map(async symbol=>{
+      try{
+        const q=await getQuote(symbol);
+        result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
+      }catch{}
+    }));
+    batchQuoteCache.set(key,{time:Date.now(),data:result});
+    return result;
+  }catch{
+    const result=new Map();
+    await Promise.all(unique.map(async symbol=>{
+      try{
+        const q=await getQuote(symbol);
+        result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
+      }catch{}
+    }));
+    return result;
+  }finally{batchQuoteInFlight.delete(key);}
 }
 
 function rawValue(node){
