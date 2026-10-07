@@ -1,47 +1,21 @@
 import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getFastFundamentals, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
-import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
+import { nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
 const STOCK_META=new Map(nseSearchUniverse.map(s=>[s.symbol,s]));
-const DEFAULT_WATCHLIST=defaultWatchlist.map(s=>({...s}));
-const WATCHLIST_KEY="ss_watchlists_v2";
-const ACTIVE_KEY="ss_active_watchlist_v2";
-const SORT_KEY="ss_watchlist_sort_v2";
-let stockRequestId=0;
-
-function loadWatchlists(){
-  const initial={Default:DEFAULT_WATCHLIST.map(s=>({...s})),List1:[],List2:[]};
-  try{
-    const saved=JSON.parse(localStorage.getItem(WATCHLIST_KEY)||"null");
-    if(saved && typeof saved==="object"){
-      const cleaned={Default:initial.Default,List1:Array.isArray(saved.List1)?saved.List1:[],List2:Array.isArray(saved.List2)?saved.List2:[]};
-      const valid=Array.isArray(saved.Default)&&saved.Default.length===DEFAULT_WATCHLIST.length&&DEFAULT_WATCHLIST.every(s=>saved.Default.some(x=>x?.symbol===s.symbol));
-      if(valid) cleaned.Default=saved.Default;
-      localStorage.setItem(WATCHLIST_KEY,JSON.stringify(cleaned));
-      localStorage.removeItem("ss_custom_lists_v2");
-      localStorage.removeItem("ss_active_list_v2");
-      return cleaned;
-    }
-  }catch{}
-  localStorage.removeItem("ss_custom_lists_v2");
-  localStorage.removeItem("ss_active_list_v2");
-  localStorage.setItem(WATCHLIST_KEY,JSON.stringify(initial));
-  return initial;
-}
-let watchlists=loadWatchlists();
-let activeWatchlist=localStorage.getItem(ACTIVE_KEY)||"Default";
-if(!watchlists[activeWatchlist]) activeWatchlist="Default";
-let sortMode=localStorage.getItem(SORT_KEY)||"default";
+const PORTFOLIO_KEY="ss_portfolio";
+const PORTFOLIO_MAX=30;
+let portfolio=[];
 let currentSymbol="SBIN.NS";
-
-function saveWatchlists(){
-  localStorage.setItem(WATCHLIST_KEY,JSON.stringify(watchlists));
-  localStorage.setItem(ACTIVE_KEY,activeWatchlist);
-  localStorage.setItem(SORT_KEY,sortMode);
+function loadPortfolioData(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(PORTFOLIO_KEY)||"[]");
+    portfolio=Array.isArray(saved)?saved.filter(s=>typeof s==="string").map(normalizeSymbol).filter(Boolean).slice(0,PORTFOLIO_MAX):[];
+  }catch{portfolio=[];}
+  localStorage.setItem(PORTFOLIO_KEY,JSON.stringify(portfolio));
 }
-function currentList(){
-  return watchlists[activeWatchlist]||[];
-}
+loadPortfolioData();
+function savePortfolio(){localStorage.setItem(PORTFOLIO_KEY,JSON.stringify(portfolio));}
 function symbolLabel(symbol){
   return symbol.replace(/\.(NS|BO)$/,"");
 }
@@ -87,10 +61,6 @@ function installDesignSystem(){
     input:focus,select:focus{border-color:#4f8cff!important;box-shadow:0 0 0 3px rgba(79,140,255,.12)}
     .ss-card{background:linear-gradient(180deg,rgba(18,26,51,.98),rgba(10,17,35,.98))!important;border:1px solid rgba(91,121,180,.22)!important;box-shadow:0 18px 50px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.025)}
     .ss-subcard{background:rgba(5,9,20,.62)!important;border:1px solid rgba(91,121,180,.18)!important}
-    #watchlistTabs button{border:1px solid rgba(91,121,180,.2)!important}
-    #watchlistSort{cursor:pointer}
-    #mixCaps [data-row]{transition:background .16s ease,transform .16s ease;border-bottom-color:rgba(91,121,180,.12)!important}
-    #mixCaps [data-row]:hover{background:rgba(79,140,255,.07);transform:translateX(2px)}
         #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
      .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
@@ -116,7 +86,7 @@ function installDesignSystem(){
     @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}}
     @media(max-width:1080px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
-    @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}#watchlistSort{font-size:9px}}
+    @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}}
   `; document.head.appendChild(style);
 }
 
@@ -130,20 +100,16 @@ function ensureUI(){
       <div id="ss-header-actions" style="display:flex;gap:8px;align-items:center"><div id="marketStatus" style="font-size:11px;padding:7px 12px;background:#121a33;border:1px solid #1e2d5a;border-radius:20px">--</div></div>
     </div>
     <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr 420px;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
-      <div class="ss-card ss-watch" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
-        <div style="padding:12px 14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:850;letter-spacing:.01em">Watchlist</div><div id="watchlistCount" style="font-size:9px;color:#7C8DB0">Default • 10 stocks</div></div><div style="font-size:9px;color:#8fb8ff;background:rgba(79,140,255,.12);padding:4px 9px;border-radius:10px;border:1px solid rgba(79,140,255,.2)">LAST CLOSE</div></div>
-          <div id="watchlistTabs" style="display:flex;gap:5px;margin-top:10px;flex-wrap:wrap"></div>
-          <div style="display:flex;gap:6px;margin-top:8px"><select id="watchlistSort" style="flex:1;padding:7px 9px;background:#070d2b;color:white;border:1px solid #1e2d5a;border-radius:8px;font-size:10px"><option value="default">Sort: Default</option><option value="az">A → Z</option><option value="za">Z → A</option><option value="price">Price: High → Low</option><option value="change">Change: High → Low</option><option value="changePct">Change %: High → Low</option></select><button id="newWatchlist" style="padding:7px 10px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:800;font-size:10px">+ List</button></div>
-        </div>
-        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="watchlistSearch" placeholder="Search symbol to add" style="flex:1;padding:8px 12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="watchlistSearchBtn" style="padding:8px 12px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+ Add</button></div><div id="watchlistHint" style="font-size:9px;color:#7C8DB0;margin-top:6px"></div></div>
+      <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+        <div style="padding:14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:850">My Portfolio</div><div id="portfolioCount" style="font-size:9px;color:#7C8DB0">0 / 30 stocks tracked</div></div><div style="font-size:9px;color:#8fb8ff;background:rgba(79,140,255,.12);padding:4px 9px;border-radius:10px;border:1px solid rgba(79,140,255,.2)">TRACKING</div></div></div>
+        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Search symbol to add" style="flex:1;padding:8px 12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="portfolioSearchBtn" style="padding:8px 12px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+ Add</button></div><div style="font-size:9px;color:#7C8DB0;margin-top:6px">Add up to 30 NSE/BSE stocks. Your portfolio starts empty.</div></div>
         <div style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:8px 14px;font-size:9px;color:#7C8DB0;font-weight:700;border-bottom:1px solid #1e2d5a;background:#0e1429"><span>Instrument</span><span style="text-align:right">LTP</span><span style="text-align:right">% Chg</span><span></span></div>
-        <div id="mixCaps" style="flex:1;overflow:auto;min-height:320px">Loading your watchlist…</div>
-        <div style="padding:10px 14px;border-top:1px solid #1e2d5a;display:flex;justify-content:space-between;font-size:10px;background:#0e1429"><div>Top Gainer: <b id="topGainer" style="color:#00ff88">--</b></div><div>Loser: <b id="topLoser" style="color:#ff4444">--</b></div></div>
-        <div style="background:#070d2b;border-top:1px solid #1e2d5a;padding:12px"><div style="font-size:11px;font-weight:700;margin-bottom:8px">💼 My Portfolio / Custom</div><div id="portfolio" style="font-size:12px;color:#7C8DB0">No stocks added</div><div style="margin-top:8px;display:flex;gap:6px"><input id="customAdd" placeholder="Add e.g. RVNL.BO" style="flex:1;padding:7px 10px;background:#121a33;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="customAddBtn" style="padding:7px 12px;background:white;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+</button></div></div>
+        <div id="portfolioList" style="flex:1;overflow:auto;min-height:320px;padding:4px 0"><div style="padding:22px 14px;text-align:center;color:#7C8DB0;font-size:11px">Your portfolio is empty.<br><span style="font-size:9px">Search for a stock above or add the selected stock.</span></div></div>
+        <div style="padding:10px 14px;border-top:1px solid #1e2d5a;display:flex;justify-content:space-between;font-size:10px;background:#0e1429"><div>Top Gainer: <b id="portfolioTopGainer" style="color:#00ff88">--</b></div><div>Loser: <b id="portfolioTopLoser" style="color:#ff4444">--</b></div></div>
       </div>
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
-          <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ Watchlist</button></div></div>
+          <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ My Portfolio</button></div></div>
           <div class="ss-analysis">
             <div class="ss-analysis-card">
               <div class="ss-analysis-title">Signal Analysis</div>
@@ -217,101 +183,43 @@ function ensureUI(){
   document.getElementById("watchlistSort").value=sortMode;
 }
 
-async function renderWatchlist(){
-  const list=currentList();
-  setText("watchlistCount",activeWatchlist+" • "+list.length+"/20 stocks");
-  const tabs=document.getElementById("watchlistTabs");
-  tabs.innerHTML=["Default","List1","List2"].map(name=>`<button data-list="${name}" style="padding:5px 9px;background:${name===activeWatchlist?"#00d4ff":"#1a294e"};color:${name===activeWatchlist?"#070d2b":"white"};border:none;border-radius:14px;font-size:9px;font-weight:800;cursor:pointer">${name==="Default"?"Default":name.replace("List","List ")}</button>`).join("");
-  tabs.querySelectorAll("[data-list]").forEach(btn=>btn.onclick=()=>{activeWatchlist=btn.dataset.list;saveWatchlists();renderWatchlist();});
-  document.getElementById("watchlistHint").textContent=activeWatchlist==="Default"?"Default watchlist with 10 curated stocks.":"Up to 20 stocks in this list.";
-  const el=document.getElementById("mixCaps");
-  el.innerHTML=list.length?list.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">--</div><div class="wl-change" style="text-align:right;font-size:10px;font-weight:700">--</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join(""):"<div style='padding:20px;color:#7C8DB0;text-align:center;font-size:11px'>No stocks in this list.</div>";
-  if(!list.length){setText("topGainer","--");setText("topLoser","--");return;}
-  let quotes;
-  try{
-    quotes=await getQuotesBatch(list.map(s=>s.symbol));
-  }catch(error){
-    console.warn("[StockSense] watchlist quotes",error);
-    quotes=new Map();
-  }
-  const live=list.map(s=>{
-    const q=quotes.get(String(s.symbol).toUpperCase());
-    return q?{...s,...q}:{...s,price:null,change:null,changePct:null};
-  });
-  const sorted=live.slice().sort((a,b)=>{
-    if(sortMode==="az") return symbolLabel(a.symbol).localeCompare(symbolLabel(b.symbol));
-    if(sortMode==="za") return symbolLabel(b.symbol).localeCompare(symbolLabel(a.symbol));
-    if(sortMode==="price") return (b.price??-Infinity)-(a.price??-Infinity);
-    if(sortMode==="change") return (b.change??-Infinity)-(a.change??-Infinity);
-    if(sortMode==="changePct") return (b.changePct??-Infinity)-(a.changePct??-Infinity);
-    return 0;
-  });
-  el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" role="button" tabindex="0" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${escapeHtml(symbolLabel(s.symbol))}</span></div><div style="font-size:9px;color:#7C8DB0">${escapeHtml(s.symbol)}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div class="wl-change" style="text-align:right;color:${s.changePct==null?"#7C8DB0":s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" title="Remove ${escapeHtml(symbolLabel(s.symbol))}" aria-label="Remove ${escapeHtml(symbolLabel(s.symbol))}" style="background:none;border:none;color:#7C8DB0;cursor:pointer">×</button></div>`).join("");
-  el.querySelectorAll("[data-row]").forEach((row,i)=>{
-    const s=sorted[i];
-    const open=()=>loadStockGlobal(s.symbol);
-    row.onclick=open;
-    row.onkeydown=event=>{if(event.key==="Enter" || event.key===" "){event.preventDefault();open();}};
-    const rm=row.querySelector(".wl-remove");
-    rm.onclick=e=>{e.stopPropagation();removeFromWatchlist(s.symbol);};
-  });
+async function renderPortfolio(){
+  const list=portfolio.map(symbol=>({symbol,display:symbolLabel(symbol),name:STOCK_META.get(symbol)?.name||symbolLabel(symbol)}));
+  setText("portfolioCount",list.length+" / "+PORTFOLIO_MAX+" stocks tracked");
+  const box=document.getElementById("portfolioList"); if(!box)return;
+  if(!list.length){box.innerHTML="<div style='padding:22px 14px;text-align:center;color:#7C8DB0;font-size:11px'>Your portfolio is empty.<br><span style='font-size:9px'>Search for a stock above or add the selected stock.</span></div>";setText("portfolioTopGainer","--");setText("portfolioTopLoser","--");return;}
+  const quotes=await getQuotesBatch(list.map(s=>s.symbol));
+  const live=list.map(s=>{const q=quotes.get(String(s.symbol).toUpperCase());return q?{...s,...q}:{...s,price:null,change:null,changePct:null};});
+  box.innerHTML=live.map(s=>`<div data-row style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;align-items:center;padding:9px 14px;border-bottom:1px solid rgba(91,121,180,.12);cursor:pointer"><div><div style="font-size:11px;font-weight:800">${escapeHtml(s.display)}</div><div style="font-size:8px;color:#7C8DB0">${escapeHtml(s.name||"")}</div></div><div style="text-align:right;font-size:10px;font-weight:800">${money(s.price)}</div><div style="text-align:right;font-size:10px;font-weight:800;color:${s.changePct>=0?"#00ff88":"#ff4444"}">${percent(s.changePct)}</div><button type="button" data-remove="${escapeHtml(s.symbol)}" aria-label="Remove ${escapeHtml(s.display)}" style="background:none;border:0;color:#ff4444;cursor:pointer;font-size:16px">×</button></div>`).join("");
+  box.querySelectorAll("[data-row]").forEach(row=>row.onclick=()=>loadStockGlobal(row.querySelector("[data-remove]")?.dataset.remove||""));
+  box.querySelectorAll("[data-remove]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();removeFromPortfolio(btn.dataset.remove);});
   const valid=live.filter(x=>Number.isFinite(x.changePct));
-  if(valid.length){
-    const gain=[...valid].sort((a,b)=>b.changePct-a.changePct)[0], lose=[...valid].sort((a,b)=>a.changePct-b.changePct)[0];
-    setText("topGainer",symbolLabel(gain.symbol)+" "+percent(gain.changePct));
-    setText("topLoser",symbolLabel(lose.symbol)+" "+percent(lose.changePct));
-  }else{setText("topGainer","--");setText("topLoser","--");}
+  if(valid.length){const gain=[...valid].sort((x,y)=>y.changePct-x.changePct)[0],lose=[...valid].sort((x,y)=>x.changePct-y.changePct)[0];setText("portfolioTopGainer",symbolLabel(gain.symbol)+" "+percent(gain.changePct));setText("portfolioTopLoser",symbolLabel(lose.symbol)+" "+percent(lose.changePct));}
 }
-
-function addToWatchlist(symbol){
-  if(!symbol)return;
-  const list=currentList();
-  if(list.some(s=>s.symbol===symbol)){loadStockGlobal(symbol);return;}
-  if(list.length>=20){alert("This watchlist already has 20 stocks.");return;}
-  const base=symbolLabel(symbol);
-  const meta=STOCK_META.get(base+".NS");
-  list.push({symbol,display:base,name:meta?.name||base,cap:meta?.cap?.[0]||null,sector:meta?.sector||""});
-  saveWatchlists(); renderWatchlist(); loadStockGlobal(symbol);
+function addToPortfolio(symbol){
+  const normalized=normalizeSymbol(symbol); if(!normalized)return;
+  if(portfolio.includes(normalized)){loadStockGlobal(normalized);return;}
+  if(portfolio.length>=PORTFOLIO_MAX){alert("Your portfolio can track a maximum of 30 stocks.");return;}
+  portfolio.push(normalized);savePortfolio();renderPortfolio();loadStockGlobal(normalized);
 }
-function removeFromWatchlist(symbol){
-  if(activeWatchlist==="Default" && DEFAULT_WATCHLIST.some(s=>s.symbol===symbol)){watchlists.Default=watchlists.Default.filter(s=>s.symbol!==symbol);}else{watchlists[activeWatchlist]=currentList().filter(s=>s.symbol!==symbol);}
-  saveWatchlists();renderWatchlist();
-}
+function removeFromPortfolio(symbol){portfolio=portfolio.filter(s=>s!==symbol);savePortfolio();renderPortfolio();}
 function setupSearch(){
-  const input=document.getElementById("searchAll"), results=document.getElementById("searchResults");
+  const input=document.getElementById("searchAll"),results=document.getElementById("searchResults");
   let timer=0,seq=0;
   input.addEventListener("input",()=>{
-    const q=input.value.trim().toUpperCase(); clearTimeout(timer); const my=++seq;
+    const q=input.value.trim().toUpperCase();clearTimeout(timer);const my=++seq;
     if(!q){results.style.display="none";return;}
     const local=nseSearchUniverse.filter(s=>s.symbol.includes(q)||s.display.includes(q)||s.name.toUpperCase().includes(q)).slice(0,12);
-    const draw=matches=>{
-      results.innerHTML=matches.length?matches.map(s=>`<div data-s="${s.symbol}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${s.display}</b></span><span style="color:#00d4ff;font-size:10px">${s.symbol}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching NSE/BSE symbol found.</div>";
-      results.style.display="block";
-      results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});
-    };
+    const draw=matches=>{results.innerHTML=matches.length?matches.map(s=>`<div data-s="${escapeHtml(s.symbol)}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between"><span><b>${escapeHtml(s.display)}</b></span><span style="color:#00d4ff;font-size:10px">${escapeHtml(s.symbol)}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching NSE/BSE symbol found.</div>";results.style.display="block";results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});};
     draw(local);
-    if(q.length>=2) timer=setTimeout(async()=>{try{const remote=await searchSymbols(q);if(my!==seq)return;draw([...local,...remote].filter((s,i,a)=>a.findIndex(x=>x.symbol===s.symbol)===i).slice(0,12));}catch{}},250);
+    if(q.length>=2)timer=setTimeout(async()=>{try{const remote=await searchSymbols(q);if(my!==seq)return;draw([...local,...remote].filter((s,i,a)=>a.findIndex(x=>x.symbol===s.symbol)===i).slice(0,12));}catch{}},250);
   });
-  document.getElementById("watchlistSearchBtn").onclick=()=>{const v=normalizeSymbol(document.getElementById("watchlistSearch").value);if(v)addToWatchlist(v);document.getElementById("watchlistSearch").value="";};
-  document.getElementById("watchlistSearch").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("watchlistSearchBtn").click();});
+  const pInput=document.getElementById("portfolioSearch"),pBtn=document.getElementById("portfolioSearchBtn");
+  const add=()=>{const v=normalizeSymbol(pInput.value);if(v)addToPortfolio(v);pInput.value="";};
+  pBtn.onclick=add;pInput.addEventListener("keydown",e=>{if(e.key==="Enter")add();});
 }
-function setupWatchlistControls(){
-  document.getElementById("watchlistSort").onchange=e=>{sortMode=e.target.value;saveWatchlists();renderWatchlist();};
-  document.getElementById("newWatchlist").onclick=()=>{
-    const name=!watchlists.List1?"List1":!watchlists.List2?"List2":null;
-    if(!name){alert("You can have up to 3 watchlists.");return;}
-    watchlists[name]=[];activeWatchlist=name;saveWatchlists();renderWatchlist();
-  };
-}
-function loadPortfolio(){
-  const p=readStoredArray("ss_portfolio").filter(s=>typeof s==="string"),el=document.getElementById("portfolio");
-  el.innerHTML=p.length?p.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 8px;background:#0e1429;margin:3px 0;border-radius:6px;font-size:12px"><span>${escapeHtml(s)}</span><button type="button" data-p="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}" style="background:none;border:0;color:#ff4444;cursor:pointer">×</button></div>`).join(""):"No stocks added";
-  el.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{const next=p.filter(s=>s!==x.dataset.p);localStorage.setItem("ss_portfolio",JSON.stringify(next));loadPortfolio();});
-}
-function setupPortfolio(){
-  document.getElementById("addPortfolio").onclick=()=>{const p=JSON.parse(localStorage.getItem("ss_portfolio")||"[]");if(!p.includes(currentSymbol)){p.push(currentSymbol);localStorage.setItem("ss_portfolio",JSON.stringify(p));loadPortfolio();}};
-  document.getElementById("customAddBtn").onclick=()=>{const v=normalizeSymbol(document.getElementById("customAdd").value);if(v)addToWatchlist(v);document.getElementById("customAdd").value="";};
-}
+function loadPortfolio(){loadPortfolioData();renderPortfolio();}
+function setupPortfolio(){document.getElementById("addPortfolio").onclick=()=>addToPortfolio(currentSymbol);}
 function renderNews(items){
   const box=document.getElementById("newsBox");
   if(!items?.length){box.innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#7C8DB0'>No live news is available right now.</div>";return;}
@@ -441,11 +349,9 @@ window.loadStockGlobal=loadStockGlobal;
 async function init(){
   ensureUI();
   setupSearch();
-  setupWatchlistControls();
   setupPortfolio();
   loadPortfolio();
   loadStock(currentSymbol);
-  renderWatchlist();
   loadIndices();
   const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
   updateMarketStatus();
