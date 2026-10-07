@@ -20,11 +20,26 @@ export async function getFastQuote(symbol){
   const key=String(symbol).toUpperCase();
   const cached=batchQuoteCache.get("fast:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(key));
-  const q=json?.quoteResponse?.result?.[0];
-  const data=normalizeBatchQuote(q);
-  if(!data) throw new Error("Live quote unavailable for "+symbol);
-  const normalized={symbol:key,price:data.price,prev:data.prev,change:data.change,changePct:data.changePct,high:data.high,low:data.low,vol:data.vol,high52:data.high52,low52:data.low52};
+  // Yahoo's v7 quote endpoint now requires a crumb/cookie session and can return
+  // HTTP 401. The public chart endpoint remains available without that session,
+  // so use it for the fast quote path as well.
+  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=5d&events=history";
+  const json=await fetchYahoo(url);
+  const result=json?.chart?.result?.[0];
+  const meta=result?.meta;
+  const quote=result?.indicators?.quote?.[0];
+  const closes=(quote?.close||[]).filter(Number.isFinite);
+  const price=Number.isFinite(meta?.regularMarketPrice)?meta.regularMarketPrice:closes[closes.length-1];
+  const prev=Number.isFinite(meta?.previousClose)?meta.previousClose:(closes.length>=2?closes[closes.length-2]:null);
+  if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) throw new Error("Live quote unavailable for "+symbol);
+  const normalized={
+    symbol:key,price,prev,change:price-prev,changePct:(price-prev)/prev*100,
+    high:Number.isFinite(meta?.regularMarketDayHigh)?meta.regularMarketDayHigh:(quote?.high||[]).filter(Number.isFinite).slice(-1)[0]??null,
+    low:Number.isFinite(meta?.regularMarketDayLow)?meta.regularMarketDayLow:(quote?.low||[]).filter(Number.isFinite).slice(-1)[0]??null,
+    vol:Number.isFinite(meta?.regularMarketVolume)?meta.regularMarketVolume:(quote?.volume||[]).filter(Number.isFinite).slice(-1)[0]??null,
+    high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:null,
+    low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:null
+  };
   batchQuoteCache.set("fast:"+key,{time:Date.now(),data:normalized});
   return normalized;
 }
@@ -119,13 +134,15 @@ export async function getQuotesBatch(symbols){
   if(cached && Date.now()-cached.time<BATCH_CACHE_MS) return cached.data;
   if(batchQuoteInFlight.has(key)) return batchQuoteInFlight.get(key);
   const promise=(async()=>{
-    const url=YAHOO_QUOTE+encodeURIComponent(unique.join(","));
-    const json=await fetchYahoo(url);
+    // Do not use Yahoo v7 /quote here: it now requires crumb/cookie auth.
+    // Fetch the public chart endpoint concurrently for each symbol instead.
     const result=new Map();
-    for(const q of (json?.quoteResponse?.result||[])){
-      const normalized=normalizeBatchQuote(q);
-      if(normalized) result.set(normalized.symbol,normalized);
-    }
+    await Promise.all(unique.map(async symbol=>{
+      try{
+        const q=await getFastQuote(symbol);
+        result.set(symbol,q);
+      }catch{}
+    }));
     batchQuoteCache.set(key,{time:Date.now(),data:result});
     return result;
   })();
@@ -267,17 +284,20 @@ export async function getFastFundamentals(symbol){
   const key=String(symbol).toUpperCase();
   const cached=fundFastCache.get(key);
   if(cached && Date.now()-cached.time<5*60*1000) return cached.data;
-  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
-  const q=json?.quoteResponse?.result?.[0]||{};
+  // v7 quote is crumb-protected. Use the public chart metadata for the
+  // immediately available fields; slower filing data can fill the rest later.
+  const url=YAHOO_CHART+encodeURIComponent(String(symbol).toUpperCase())+"?interval=1d&range=5d&events=history";
+  const json=await fetchYahoo(url);
+  const q=json?.chart?.result?.[0]?.meta||{};
   if(!Object.keys(q).length) throw new Error("Fast fundamentals unavailable for "+symbol);
   const data={
-    pe:Number.isFinite(q.trailingPE)?q.trailingPE:null,
+    pe:null,
     mcap:Number.isFinite(q.marketCap)?q.marketCap:null,
-    pb:Number.isFinite(q.priceToBook)?q.priceToBook:null,
-    eps:Number.isFinite(q.epsTrailingTwelveMonths)?q.epsTrailingTwelveMonths:null,
-    bookValue:Number.isFinite(q.bookValue)?q.bookValue:null,
-    div:Number.isFinite(q.dividendYield)?q.dividendYield*100:null,
-    beta:Number.isFinite(q.beta)?q.beta:null,
+    pb:null,
+    eps:null,
+    bookValue:null,
+    div:null,
+    beta:null,
     roe:null,roa:null,roce:null,debtEquity:null,
     revenueGrowth:null,earningsGrowth:null,operatingMargin:null,pm:null,
     totalRevenue:null,netIncome:null,ebitda:null,freeCashFlow:null,totalDebt:null,cashTotal:null,
