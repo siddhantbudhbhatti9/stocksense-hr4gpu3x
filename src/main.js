@@ -1,4 +1,4 @@
-import { getQuote, getQuotesBatch, getFastStockData, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastStockData, getFastFundamentals, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -345,7 +345,8 @@ function renderFinancials(fund){
       setText("peValue","P/E "+(Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(fund?.mcap));setText("betaValue","Beta "+(Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--"));
       setText("divValue","Div "+(Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--"));
     };
-    applyFundamentals(data.fund);
+    // Paint the valuation snapshot immediately, then replace it with the complete NSE filing data.
+    getFastFundamentals(symbol).then(fast=>{if(requestId===stockRequestId)applyFundamentals(fast);}).catch(()=>{});
     getFundamentals(symbol).then(fund=>{if(requestId===stockRequestId)applyFundamentals(fund);}).catch(()=>{});
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
     const ai=getAISignal(data.rsi,data.sma20,data.sma50);
