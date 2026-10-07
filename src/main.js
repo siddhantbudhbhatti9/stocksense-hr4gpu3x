@@ -199,7 +199,7 @@ function ensureUI(){
         <div id="globalIndices" class="ss-global-grid" style="margin-top:14px"></div>
       </div>
       <div class="ss-card" style="margin-top:12px;background:#121a33;border:1px solid #1e2d5a;border-radius:14px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;font-weight:900">Latest News</div><div id="newsContext" style="font-size:9px;color:#7C8DB0;margin-top:3px">News for the selected stock</div></div><span style="font-size:9px;color:#8fb8ff">LIVE FEED</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;font-weight:900">Latest News</div><div id="newsContext" style="font-size:9px;color:#7C8DB0;margin-top:3px">General Indian and global market news</div></div><span style="font-size:9px;color:#8fb8ff">LIVE FEED</span></div>
         <div id="newsBox" style="margin-top:10px;font-size:11px"></div>
       </div>
     </div>
@@ -330,7 +330,7 @@ function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
   const day=get("weekday"),h=Number(get("hour")),m=Number(get("minute"));
   const mins=h*60+m,open=openHour*60+openMinute,close=closeHour*60+closeMinute;
   const weekday=day!=="Sat"&&day!=="Sun";
-  return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute")};
+  return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute"),weekday:day};
 }
 async function loadGlobalMarket(){
   const markets=[
@@ -357,7 +357,7 @@ async function loadGlobalMarket(){
     if(price)price.textContent=q?money(q.price):"--";
     if(change){change.textContent=q?percent(q.changePct):"Data unavailable";change.style.color=q?(q.changePct>=0?"#00ff88":"#ff4444"):"#7C8DB0";}
     if(status){status.textContent=state.open?"OPEN":"CLOSED";status.style.color=state.open?"#00ff88":"#7C8DB0";}
-    if(clock)clock.textContent="Local time "+state.time;
+    if(clock){const local=new Intl.DateTimeFormat("en-US",{timeZone:m[3],hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());clock.textContent=local+" • "+state.weekday;}
   }
   setText("globalMarketUpdated","Updated "+new Date().toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"})+" IST");
 }
