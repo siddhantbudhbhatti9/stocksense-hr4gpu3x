@@ -1,4 +1,4 @@
-import { getQuote, getFastStockData, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastStockData, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -211,17 +211,13 @@ async function renderWatchlist(){
   document.getElementById("watchlistHint").textContent=activeWatchlist==="Default"?"Default watchlist with 10 curated stocks.":"Up to 20 stocks in this list.";
   const el=document.getElementById("mixCaps");
   el.innerHTML=list.length?list.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">--</div><div class="wl-change" style="text-align:right;font-size:10px;font-weight:700">--</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join(""):"<div style='padding:20px;color:#7C8DB0;text-align:center;font-size:11px'>No stocks in this list.</div>";
-  const rows=[...el.querySelectorAll("[data-row]")];
-  const live=[];
-  await Promise.all(list.map(async(s,i)=>{
-    try{
-      const q=await getQuote(s.symbol);
-      live[i]={...s,price:q.price,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100};
-    }catch{
-      live[i]={...s,price:null,change:null,changePct:null};
-    }
-  }));
-  const sorted=live.filter(Boolean).sort((a,b)=>{
+  if(!list.length){setText("topGainer","--");setText("topLoser","--");return;}
+  const quotes=await getQuotesBatch(list.map(s=>s.symbol));
+  const live=list.map(s=>{
+    const q=quotes.get(String(s.symbol).toUpperCase());
+    return q?{...s,...q}:{...s,price:null,change:null,changePct:null};
+  });
+  const sorted=live.slice().sort((a,b)=>{
     if(sortMode==="az") return symbolLabel(a.symbol).localeCompare(symbolLabel(b.symbol));
     if(sortMode==="za") return symbolLabel(b.symbol).localeCompare(symbolLabel(a.symbol));
     if(sortMode==="price") return (b.price??-Infinity)-(a.price??-Infinity);
@@ -229,15 +225,21 @@ async function renderWatchlist(){
     if(sortMode==="changePct") return (b.changePct??-Infinity)-(a.changePct??-Infinity);
     return 0;
   });
-  if(sortMode!=="default"){
-    el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div style="text-align:right;color:${s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join("");
-  }else{
-    rows.forEach((row,i)=>{const s=live[i]; if(!s)return; row.querySelector(".wl-price").textContent=money(s.price); const c=row.querySelector(".wl-change"); c.textContent=percent(s.changePct); c.style.color=s.changePct>=0?"#00ff88":"#ff4444";});
-  }
-  [...el.querySelectorAll("[data-row]")].forEach((row,i)=>{const s=sortMode==="default"?live[i]:sorted[i]; row.onclick=()=>loadStockGlobal(s.symbol); const rm=row.querySelector(".wl-remove"); rm.onclick=e=>{e.stopPropagation();removeFromWatchlist(s.symbol);};});
+  el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div class="wl-change" style="text-align:right;color:${s.changePct==null?"#7C8DB0":s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join("");
+  el.querySelectorAll("[data-row]").forEach((row,i)=>{
+    const s=sorted[i];
+    row.onclick=()=>loadStockGlobal(s.symbol);
+    const rm=row.querySelector(".wl-remove");
+    rm.onclick=e=>{e.stopPropagation();removeFromWatchlist(s.symbol);};
+  });
   const valid=live.filter(x=>Number.isFinite(x.changePct));
-  if(valid.length){const gain=[...valid].sort((a,b)=>b.changePct-a.changePct)[0], lose=[...valid].sort((a,b)=>a.changePct-b.changePct)[0];setText("topGainer",symbolLabel(gain.symbol)+" "+percent(gain.changePct));setText("topLoser",symbolLabel(lose.symbol)+" "+percent(lose.changePct));}else{setText("topGainer","--");setText("topLoser","--");}
+  if(valid.length){
+    const gain=[...valid].sort((a,b)=>b.changePct-a.changePct)[0], lose=[...valid].sort((a,b)=>a.changePct-b.changePct)[0];
+    setText("topGainer",symbolLabel(gain.symbol)+" "+percent(gain.changePct));
+    setText("topLoser",symbolLabel(lose.symbol)+" "+percent(lose.changePct));
+  }else{setText("topGainer","--");setText("topLoser","--");}
 }
+
 function addToWatchlist(symbol){
   if(!symbol)return;
   const list=currentList();
@@ -363,8 +365,19 @@ async function loadIndices(){
     ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
     ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
   ];
-  const values=await Promise.all(syms.map(async([s,n])=>{try{const q=await getQuote(s);return {n,q,pct:(q.price-q.prev)/q.prev*100};}catch{return {n,q:null,pct:null};}}));
-  document.getElementById("indices").innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join("")+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+  try{
+    const quotes=await getQuotesBatch(syms.map(x=>x[0]));
+    const values=syms.map(([s,n])=>{
+      const q=quotes.get(s.toUpperCase());
+      return {n,q,pct:q?.changePct??null};
+    });
+    const box=document.getElementById("indices");
+    if(!box)return;
+    box.innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join('')+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+  }catch(error){
+    const box=document.getElementById("indices"); if(box) box.innerHTML="<div style='padding:10px;color:#ffcc00'>Market data is temporarily unavailable. Please retry shortly.</div>";
+    console.warn("[StockSense] indices",error);
+  }
 }
 function calcRSIForScreen(c){
   if(!Array.isArray(c)||c.length<15)return 50;
