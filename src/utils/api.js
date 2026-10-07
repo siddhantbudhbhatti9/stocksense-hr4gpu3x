@@ -15,6 +15,34 @@ const batchQuoteInFlight=new Map();
 const fundCache=new Map();
 const fundFastCache=new Map();
 const newsCache=new Map();
+
+export async function getFastQuote(symbol){
+  const key=String(symbol).toUpperCase();
+  const cached=batchQuoteCache.get("fast:"+key);
+  if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
+  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(key));
+  const q=json?.quoteResponse?.result?.[0];
+  const data=normalizeBatchQuote(q);
+  if(!data) throw new Error("Live quote unavailable for "+symbol);
+  const normalized={symbol:key,price:data.price,prev:data.prev,change:data.change,changePct:data.changePct,high:data.high,low:data.low,vol:data.vol,high52:data.high52,low52:data.low52};
+  batchQuoteCache.set("fast:"+key,{time:Date.now(),data:normalized});
+  return normalized;
+}
+
+export async function getTechnicalData(symbol){
+  const key=String(symbol).toUpperCase();
+  const cached=quoteCache.get("technical:"+key);
+  if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
+  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=1y&events=history";
+  const json=await fetchYahoo(url);
+  const result=json?.chart?.result?.[0];
+  const quote=result?.indicators?.quote?.[0];
+  const closes=(quote?.close||[]).filter(Number.isFinite);
+  if(!result || closes.length<2) throw new Error("Technical history unavailable for "+symbol);
+  const data={closes,timestamps:result.timestamp||[]};
+  quoteCache.set("technical:"+key,{time:Date.now(),data});
+  return data;
+}
 const CACHE_MS=30000;
 const BATCH_CACHE_MS=30000;
 
@@ -400,19 +428,8 @@ export function formatCompactNumber(value){
 }
 
 export async function getFastStockData(symbol){
-  const quote=await getQuote(symbol);
-  const rsi=calcRSI(quote.closes);
-  const sma20=calcSMA(quote.closes,20);
-  const sma50=calcSMA(quote.closes,50);
-  const sma200=calcSMA(quote.closes,200);
-  const first=quote.closes[0];
-  return {
-    ...quote,
-    change:quote.price-quote.prev,
-    changePct:((quote.price-quote.prev)/quote.prev)*100,
-    rsi,sma20,sma50,sma200,
-    yearChange:first ? ((quote.price-first)/first)*100 : null
-  };
+  const quote=await getFastQuote(symbol);
+  return {...quote,rsi:null,sma20:null,sma50:null,sma200:null,yearChange:null};
 }
 
 export async function getStockData(symbol){
