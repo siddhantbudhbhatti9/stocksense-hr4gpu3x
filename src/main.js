@@ -54,6 +54,21 @@ function normalizeSymbol(value){
 function setText(id,value){
   const el=document.getElementById(id); if(el) el.textContent=value;
 }
+function escapeHtml(value){
+  return String(value ?? "").replace(/[&<>'"]/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[character]));
+}
+function safeExternalUrl(value){
+  try{
+    const url=new URL(value || "#", window.location.origin);
+    return ["http:","https:"].includes(url.protocol) ? url.href : "#";
+  }catch{return "#";}
+}
+function readStoredArray(key){
+  try{
+    const value=JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(value) ? value : [];
+  }catch{return [];}
+}
 function money(value){
   return Number.isFinite(value)?"₹"+value.toFixed(2):"--";
 }
@@ -212,7 +227,13 @@ async function renderWatchlist(){
   const el=document.getElementById("mixCaps");
   el.innerHTML=list.length?list.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">--</div><div class="wl-change" style="text-align:right;font-size:10px;font-weight:700">--</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join(""):"<div style='padding:20px;color:#7C8DB0;text-align:center;font-size:11px'>No stocks in this list.</div>";
   if(!list.length){setText("topGainer","--");setText("topLoser","--");return;}
-  const quotes=await getQuotesBatch(list.map(s=>s.symbol));
+  let quotes;
+  try{
+    quotes=await getQuotesBatch(list.map(s=>s.symbol));
+  }catch(error){
+    console.warn("[StockSense] watchlist quotes",error);
+    quotes=new Map();
+  }
   const live=list.map(s=>{
     const q=quotes.get(String(s.symbol).toUpperCase());
     return q?{...s,...q}:{...s,price:null,change:null,changePct:null};
@@ -225,10 +246,12 @@ async function renderWatchlist(){
     if(sortMode==="changePct") return (b.changePct??-Infinity)-(a.changePct??-Infinity);
     return 0;
   });
-  el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${symbolLabel(s.symbol)}</span></div><div style="font-size:9px;color:#7C8DB0">${s.symbol}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div class="wl-change" style="text-align:right;color:${s.changePct==null?"#7C8DB0":s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" title="Remove" style="background:none;border:none;color:#7C8DB0;cursor:pointer">✕</button></div>`).join("");
+  el.innerHTML=sorted.map((s,i)=>`<div data-row="${i}" role="button" tabindex="0" style="display:grid;grid-template-columns:1fr 75px 65px 24px;gap:8px;padding:10px 14px;border-bottom:1px solid #1a274a;cursor:pointer"><div><div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600"><span>${escapeHtml(symbolLabel(s.symbol))}</span></div><div style="font-size:9px;color:#7C8DB0">${escapeHtml(s.symbol)}</div></div><div class="wl-price" style="text-align:right;font-size:12px;font-weight:600">${money(s.price)}</div><div class="wl-change" style="text-align:right;color:${s.changePct==null?"#7C8DB0":s.changePct>=0?"#00ff88":"#ff4444"};font-size:10px;font-weight:700">${percent(s.changePct)}</div><button class="wl-remove" title="Remove ${escapeHtml(symbolLabel(s.symbol))}" aria-label="Remove ${escapeHtml(symbolLabel(s.symbol))}" style="background:none;border:none;color:#7C8DB0;cursor:pointer">×</button></div>`).join("");
   el.querySelectorAll("[data-row]").forEach((row,i)=>{
     const s=sorted[i];
-    row.onclick=()=>loadStockGlobal(s.symbol);
+    const open=()=>loadStockGlobal(s.symbol);
+    row.onclick=open;
+    row.onkeydown=event=>{if(event.key==="Enter" || event.key===" "){event.preventDefault();open();}};
     const rm=row.querySelector(".wl-remove");
     rm.onclick=e=>{e.stopPropagation();removeFromWatchlist(s.symbol);};
   });
@@ -281,8 +304,8 @@ function setupWatchlistControls(){
   };
 }
 function loadPortfolio(){
-  const p=JSON.parse(localStorage.getItem("ss_portfolio")||"[]"),el=document.getElementById("portfolio");
-  el.innerHTML=p.length?p.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 8px;background:#0e1429;margin:3px 0;border-radius:6px;font-size:12px"><span>${s}</span><span data-p="${s}" style="color:#ff4444;cursor:pointer">✕</span></div>`).join(""):"No stocks added";
+  const p=readStoredArray("ss_portfolio").filter(s=>typeof s==="string"),el=document.getElementById("portfolio");
+  el.innerHTML=p.length?p.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 8px;background:#0e1429;margin:3px 0;border-radius:6px;font-size:12px"><span>${escapeHtml(s)}</span><button type="button" data-p="${escapeHtml(s)}" aria-label="Remove ${escapeHtml(s)}" style="background:none;border:0;color:#ff4444;cursor:pointer">×</button></div>`).join(""):"No stocks added";
   el.querySelectorAll("[data-p]").forEach(x=>x.onclick=()=>{const next=p.filter(s=>s!==x.dataset.p);localStorage.setItem("ss_portfolio",JSON.stringify(next));loadPortfolio();});
 }
 function setupPortfolio(){
@@ -292,7 +315,7 @@ function setupPortfolio(){
 function renderNews(items){
   const box=document.getElementById("newsBox");
   if(!items?.length){box.innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#7C8DB0'>No live news is available right now.</div>";return;}
-  box.innerHTML=items.map(n=>`<div style="padding:7px;background:#0e1429;border-radius:6px;margin:4px 0"><a href="${n.link||"#"}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${n.title}</a><div style="font-size:9px;color:#7C8DB0;margin-top:3px">${n.publisher}</div></div>`).join("");
+  box.innerHTML=items.map(n=>`<div style="padding:7px;background:#0e1429;border-radius:6px;margin:4px 0"><a href="${escapeHtml(safeExternalUrl(n.link))}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${escapeHtml(n.title || "Untitled news item")}</a><div style="font-size:9px;color:#7C8DB0;margin-top:3px">${escapeHtml(n.publisher || "Unknown publisher")}</div></div>`).join("");
 }
 async function loadStock(symbol){
   const requestId=++stockRequestId;
@@ -384,7 +407,7 @@ async function loadIndices(){
     });
     const box=document.getElementById("indices");
     if(!box)return;
-    box.innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+x.n+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join('')+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
+    box.innerHTML='<div class="ss-index-grid">'+values.map(x=>x.q?'<div class="ss-index-card"><div><div class="ss-index-name">'+escapeHtml(x.n)+'</div><div class="ss-index-price">'+x.q.price.toFixed(2)+'</div></div><div class="ss-index-change" style="color:'+(x.pct>=0?"#00ff88":"#ff4444")+'">'+percent(x.pct)+'</div></div>':'<div class="ss-index-card"><div><div class="ss-index-name">'+escapeHtml(x.n)+'</div><div class="ss-index-price">--</div></div><div class="ss-index-change" style="color:#7C8DB0">Unavailable</div></div>').join('')+'</div><div style="margin-top:10px;font-size:9px;color:#7C8DB0;text-align:center">Indian market indices • '+new Date().toLocaleTimeString("en-IN")+' IST</div>';
   }catch(error){
     const box=document.getElementById("indices"); if(box) box.innerHTML="<div style='padding:10px;color:#ffcc00'>Market data is temporarily unavailable. Please retry shortly.</div>";
     console.warn("[StockSense] indices",error);
@@ -398,11 +421,16 @@ function calcRSIForScreen(c){
 }
 async function runScreener(type){
   const box=document.getElementById("screenerBox"),res=document.getElementById("screenerResults");
-  box.style.display="block";res.innerHTML="Scanning live data…";
-  const values=await Promise.all(TICKERS.slice(0,30).map(async t=>{try{const q=await getQuote(t+".NS");const rsi=calcRSIForScreen(q.closes);return {symbol:t,nse:t+".NS",price:q.price,pct:(q.price-q.prev)/q.prev*100,rsi};}catch{return null;}}));
+  box.style.display="block";res.textContent="Scanning live data…";
+  try{
+    const values=await Promise.all(TICKERS.slice(0,30).map(async t=>{try{const q=await getQuote(t+".NS");const rsi=calcRSIForScreen(q.closes);return {symbol:t,nse:t+".NS",price:q.price,pct:(q.price-q.prev)/q.prev*100,rsi};}catch{return null;}}));
   const filtered=values.filter(Boolean).filter(r=>type==="BUY"?r.rsi<45:r.rsi<35).sort((a,b)=>a.rsi-b.rsi);
-  res.innerHTML='<div style="color:#00ff88;font-size:11px">'+filtered.length+' FOUND</div>'+filtered.map(s=>'<div style="display:flex;justify-content:space-between;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="'+s.nse+'"><span><b>'+s.symbol+'</b> RSI '+s.rsi.toFixed(1)+'</span><span style="color:'+(s.pct>=0?"#00ff88":"#ff4444")+'">'+money(s.price)+' '+percent(s.pct)+'</span></div>').join("");
-  res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
+    res.innerHTML='<div style="color:#00ff88;font-size:11px">'+filtered.length+' FOUND</div>'+filtered.map(s=>'<div style="display:flex;justify-content:space-between;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="'+escapeHtml(s.nse)+'"><span><b>'+escapeHtml(s.symbol)+'</b> RSI '+s.rsi.toFixed(1)+'</span><span style="color:'+(s.pct>=0?"#00ff88":"#ff4444")+'">'+money(s.price)+' '+percent(s.pct)+'</span></div>').join("");
+    res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
+  }catch(error){
+    res.textContent="Screener data is temporarily unavailable. Please try again shortly.";
+    console.warn("[StockSense] screener",error);
+  }
 }
 function loadStockGlobal(symbol){
   loadStock(symbol);
