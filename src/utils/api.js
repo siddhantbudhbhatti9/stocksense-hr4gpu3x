@@ -136,7 +136,7 @@ export async function getQuotesBatch(symbols){
     // A partial batch is still useful; fill only missing symbols individually.
     await Promise.all(unique.filter(s=>!result.has(s)).map(async symbol=>{
       try{
-        const q=await getQuote(symbol);
+        const q=await getFastQuote(symbol);
         result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
       }catch{}
     }));
@@ -146,7 +146,7 @@ export async function getQuotesBatch(symbols){
     const result=new Map();
     await Promise.all(unique.map(async symbol=>{
       try{
-        const q=await getQuote(symbol);
+        const q=await getFastQuote(symbol);
         result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
       }catch{}
     }));
@@ -485,7 +485,7 @@ export async function getMarketCap(symbol){
 }
 
 export async function fetchLivePrice(symbol){
-  const q=await getQuote(symbol);
+  const q=await getFastQuote(symbol);
   return {price:"₹"+q.price.toFixed(2),changePct:((q.price-q.prev)/q.prev*100).toFixed(2)};
 }
 
