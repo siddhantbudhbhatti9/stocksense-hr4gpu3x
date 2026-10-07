@@ -1,4 +1,4 @@
-import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getFastFundamentals, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getNews, getAISignal, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
 import { nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -91,7 +91,7 @@ function installDesignSystem(){
     .ss-trend-list{display:grid;gap:7px;margin-top:8px}
     .ss-trend-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:#0e1429;border-radius:8px;border:1px solid rgba(91,121,180,.14)}
     .ss-trend-name{font-size:9px;color:#7890b8}.ss-trend-value{font-size:10px;font-weight:800}
-    @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}.ss-tech-grid{grid-template-columns:repeat(2,1fr)!important}} @media(max-width:520px){.ss-tech-grid{grid-template-columns:1fr!important}}
     @media(max-width:1080px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
     @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}}
@@ -152,38 +152,26 @@ function ensureUI(){
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">MOVING AVERAGES</div><div style="font-size:10px;margin-top:3px">20: <b id="sma20">--</b> · 50: <b id="sma50">--</b></div><div style="font-size:10px">200: <b id="sma200">--</b></div></div>
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">RSI POSITION</div><div id="rsiPosition" style="font-size:12px;font-weight:800;margin-top:4px">--</div><div style="font-size:9px;color:#7C8DB0;margin-top:3px">14-period momentum</div></div>
           </div>
-          <div class="ss-fund" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📊 FUNDAMENTALS</div><span id="fundSource" style="font-size:8px;color:#6f86b6">--</span></div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin-top:8px;font-size:10px;line-height:19px">
-                <div><span style="color:#7C8DB0">P/E</span><b id="f_pe" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">EPS</span><b id="f_eps" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Market Cap</span><b id="f_mcap" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Book Value</span><b id="f_book" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Dividend Yield</span><b id="f_div" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">ROE</span><b id="f_roe" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">ROA</span><b id="f_roa" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Debt / Equity</span><b id="f_de" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Revenue Growth</span><b id="f_rg" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Profit Growth</span><b id="f_eg" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Operating Margin</span><b id="f_om" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Profit Margin</span><b id="f_pm" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Revenue</span><b id="f_rev" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Net Income</span><b id="f_ni" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Free Cash Flow</span><b id="f_fcf" style="display:block;font-size:12px">--</b></div>
-                <div><span style="color:#7C8DB0">Beta</span><b id="f_beta" style="display:block;font-size:12px">--</b></div>
-              </div>
+          <div class="ss-technical-panel" style="margin-top:12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:9px;color:#7C8DB0;font-weight:800">📈 TECHNICAL INTELLIGENCE</div><div style="font-size:10px;color:#dce8ff;margin-top:3px">Multi-indicator view for better judgement — price action, momentum, trend, volatility and volume.</div></div><span id="technicalSource" style="font-size:8px;color:#6f86b6">1Y DAILY DATA</span></div>
+            <div class="ss-tech-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px">
+              <div class="ss-trend-row"><span class="ss-trend-name">EMA 20</span><b id="ema20Value" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">EMA 50</span><b id="ema50Value" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">MACD</span><b id="macdValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">MACD Signal</span><b id="macdSignalValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Stochastic %K</span><b id="stochValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">ATR 14</span><b id="atrValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Bollinger Position</span><b id="bbValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Volume Trend</span><b id="volumeTrend" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Support</span><b id="supportValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Resistance</span><b id="resistanceValue" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">1M Return</span><b id="return1m" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">3M Return</span><b id="return3m" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">6M Return</span><b id="return6m" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">1Y Return</span><b id="return1y" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">52W Range</span><b id="range52Value" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Trend Strength</span><b id="trendStrengthValue" class="ss-trend-value">--</b></div>
             </div>
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:9px;color:#7C8DB0;font-weight:700">📈 TECHNICALS</div><div style="margin-top:6px;font-size:11px;line-height:22px"><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">RSI</span><b id="t_rsi">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA20</span><b id="t_sma20">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA50</span><b id="t_sma50">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">SMA200</span><b id="t_sma200">--</b></div><div style="display:flex;justify-content:space-between"><span style="color:#7C8DB0">Signal</span><b id="t_signal">--</b></div></div></div></div>
-          <div style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-              <div><div style="font-size:9px;color:#7C8DB0;font-weight:800">📑 COMPANY FINANCIALS</div><div id="financialPeriodLabel" style="font-size:10px;color:#dce8ff;margin-top:3px">Loading exchange filings…</div></div>
-              <span id="financialSourceBadge" style="font-size:8px;color:#8fb8ff;background:rgba(79,140,255,.10);padding:4px 7px;border-radius:8px">--</span>
-            </div>
-            <div id="financialTable" style="margin-top:8px;overflow:auto"></div>
-            <div style="margin-top:12px;font-size:9px;color:#7C8DB0;font-weight:800">ANNUAL PERFORMANCE</div>
-            <div id="annualFinancialTable" style="margin-top:6px;overflow:auto"></div>
-            <div id="financialMeta" style="margin-top:8px;font-size:8px;color:#60759d"></div>
           </div>
           <div id="screenerBox" style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:12px;padding:12px;display:none"><div style="font-size:11px;font-weight:700">Screener Results</div><div id="screenerResults" style="max-height:200px;overflow:auto;margin-top:8px"></div></div>
         </div>
@@ -249,6 +237,46 @@ function renderNews(items){
   if(!items?.length){box.innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#7C8DB0'>No live news is available right now.</div>";return;}
   box.innerHTML=items.map(n=>`<div style="padding:7px;background:#0e1429;border-radius:6px;margin:4px 0"><a href="${escapeHtml(safeExternalUrl(n.link))}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${escapeHtml(n.title || "Untitled news item")}</a><div style="font-size:9px;color:#7C8DB0;margin-top:3px">${escapeHtml(n.publisher || "Unknown publisher")}</div></div>`).join("");
 }
+function emaSeries(values,period){
+  if(!Array.isArray(values)||values.length<period)return [];
+  const k=2/(period+1),out=new Array(values.length).fill(null);
+  let seed=values.slice(0,period).reduce((a,b)=>a+b,0)/period; out[period-1]=seed;
+  for(let i=period;i<values.length;i++) out[i]=values[i]*k+out[i-1]*(1-k);
+  return out;
+}
+function latestFinite(arr){for(let i=arr.length-1;i>=0;i--)if(Number.isFinite(arr[i]))return arr[i];return null;}
+function pctFromPrice(closes,lookback,price){
+  if(!price||closes.length<=lookback)return null;
+  const base=closes[closes.length-1-lookback];
+  return Number.isFinite(base)&&base!==0?(price-base)/base*100:null;
+}
+function technicalSnapshot(data){
+  const c=data.closes||[], h=data.highs||[], l=data.lows||[], v=data.volumes||[], price=data.price;
+  const ema20=latestFinite(emaSeries(c,20)), ema50=latestFinite(emaSeries(c,50));
+  const e12=emaSeries(c,12),e26=emaSeries(c,26),macdSeries=c.map((_,i)=>Number.isFinite(e12[i])&&Number.isFinite(e26[i])?e12[i]-e26[i]:null);
+  const macd=latestFinite(macdSeries), macdSignal=latestFinite(emaSeries(macdSeries.filter(Number.isFinite),9));
+  const highs=h.filter(Number.isFinite), lows=l.filter(Number.isFinite);
+  let atr=null;
+  if(h.length>=15&&l.length>=15){
+    const tr=[]; for(let i=1;i<h.length;i++){const hi=h[i],lo=l[i],pc=c[i-1];if(Number.isFinite(hi)&&Number.isFinite(lo)&&Number.isFinite(pc))tr.push(Math.max(hi-lo,Math.abs(hi-pc),Math.abs(lo-pc)));}
+    atr=tr.length>=14?tr.slice(-14).reduce((a,b)=>a+b,0)/14:null;
+  }
+  const n=14;
+  const hh=highs.slice(-n),ll=lows.slice(-n),hi=hh.length?Math.max(...hh):null,lo=ll.length?Math.min(...ll):null;
+  const stoch=hi!=null&&lo!=null&&hi!==lo?((price-lo)/(hi-lo))*100:null;
+  const mid=calcSMA(c,20),sd=c.length>=20?Math.sqrt(c.slice(-20).reduce((s,x)=>s+Math.pow(x-mid,2),0)/20):null;
+  const upper=mid!=null&&sd!=null?mid+2*sd:null,lower=mid!=null&&sd!=null?mid-2*sd:null;
+  const bbPos=upper!=null&&lower!=null&&upper!==lower?((price-lower)/(upper-lower))*100:null;
+  const vol20=v.filter(Number.isFinite).slice(-20),avgVol=vol20.length?vol20.reduce((a,b)=>a+b,0)/vol20.length:null;
+  const lastVol=latestFinite(v),volumeRatio=avgVol&&lastVol?lastVol/avgVol:null;
+  const recentLows=lows.slice(-20),recentHighs=highs.slice(-20);
+  const support=recentLows.length?Math.min(...recentLows):null,resistance=recentHighs.length?Math.max(...recentHighs):null;
+  const rsi=calcRSI(c),sma20=calcSMA(c,20),sma50=calcSMA(c,50),sma200=calcSMA(c,200);
+  const trendScore=(price>sma20?1:-1)+(sma20>sma50?1:-1)+(sma50>sma200?1:-1)+(ema20>ema50?1:-1)+(macd>macdSignal?1:-1);
+  return {rsi,sma20,sma50,sma200,ema20,ema50,macd,macdSignal,stoch,atr,bbPos,volumeRatio,support,resistance,
+    return1m:pctFromPrice(c,21,price),return3m:pctFromPrice(c,63,price),return6m:pctFromPrice(c,126,price),return1y:pctFromPrice(c,252,price),
+    range52Low:data.low52,range52High:data.high52,trendScore};
+}
 async function loadStock(symbol){
   const requestId=++stockRequestId;
   currentSymbol=symbol;
@@ -266,58 +294,35 @@ async function loadStock(symbol){
     try{ technical=await getTechnicalData(symbol); }catch(error){ console.warn("[StockSense] technical data",error); }
     if(requestId!==stockRequestId)return;
     const closes=technical?.closes||[];
-    data.rsi=calcRSI(closes);
-    data.sma20=calcSMA(closes,20);
-    data.sma50=calcSMA(closes,50);
-    data.sma200=calcSMA(closes,200);
-    const first=closes[0];
-    data.yearChange=first ? ((data.price-first)/first)*100 : null;
-    setText("rsiValue",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");
-    setText("sma20",money(data.sma20));setText("sma50",money(data.sma50));setText("sma200",money(data.sma200));
-    const rsi=Number.isFinite(data.rsi)?data.rsi:null;
-    const rsiState=rsi==null?"Unavailable":rsi<30?"Oversold":rsi<45?"Weak / recovering":rsi<=70?"Neutral / healthy":rsi<=80?"Overbought":"Highly overbought";
-    const momentum=rsi==null?"Unavailable":rsi<30?"Strong downside pressure":rsi<45?"Bearish momentum":rsi>70?"Overheated momentum":"Balanced momentum";
-    const trend20_50=data.sma20!=null&&data.sma50!=null?(data.sma20>data.sma50?"Bullish":"Bearish"):"Unavailable";
-    const trend50_200=data.sma50!=null&&data.sma200!=null?(data.sma50>data.sma200?"Bullish":"Bearish"):"Unavailable";
-    const priceVs20=data.price!=null&&data.sma20!=null?(data.price>data.sma20?"Above SMA20":"Below SMA20"):"Unavailable";
+    data.closes=closes; data.highs=technical?.highs||[]; data.lows=technical?.lows||[]; data.volumes=technical?.volumes||[];
+    const tech=technicalSnapshot(data);
+    Object.assign(data,tech);
+    setText("rsiValue",Number.isFinite(tech.rsi)?tech.rsi.toFixed(1):"--");
+    setText("sma20",money(tech.sma20));setText("sma50",money(tech.sma50));setText("sma200",money(tech.sma200));
+    setText("ema20Value",money(tech.ema20));setText("ema50Value",money(tech.ema50));
+    setText("macdValue",Number.isFinite(tech.macd)?tech.macd.toFixed(2):"--");setText("macdSignalValue",Number.isFinite(tech.macdSignal)?tech.macdSignal.toFixed(2):"--");
+    setText("stochValue",Number.isFinite(tech.stoch)?tech.stoch.toFixed(1):"--");setText("atrValue",money(tech.atr));
+    setText("bbValue",Number.isFinite(tech.bbPos)?tech.bbPos.toFixed(0)+"% of band":"--");
+    setText("volumeTrend",Number.isFinite(tech.volumeRatio)?tech.volumeRatio.toFixed(2)+"× avg":"--");
+    setText("supportValue",money(tech.support));setText("resistanceValue",money(tech.resistance));
+    setText("return1m",percent(tech.return1m));setText("return3m",percent(tech.return3m));setText("return6m",percent(tech.return6m));setText("return1y",percent(tech.return1y));
+    setText("range52Value",money(tech.range52Low)+" / "+money(tech.range52High));
+    setText("trendStrengthValue",tech.trendScore>=4?"Strong bullish":tech.trendScore>=2?"Bullish":tech.trendScore<=-4?"Strong bearish":tech.trendScore<=-2?"Bearish":"Mixed");
+    const rsiState=tech.rsi==null?"Unavailable":tech.rsi<30?"Oversold":tech.rsi<45?"Weak / recovering":tech.rsi<=70?"Neutral / healthy":tech.rsi<=80?"Overbought":"Highly overbought";
+    const momentum=tech.rsi==null?"Unavailable":tech.rsi<30?"Strong downside reversal zone":tech.rsi<45?"Bearish momentum":tech.rsi>70?"Overheated momentum":"Balanced momentum";
+    const trend20_50=tech.sma20!=null&&tech.sma50!=null?(tech.sma20>tech.sma50?"Bullish":"Bearish"):"Unavailable";
+    const trend50_200=tech.sma50!=null&&tech.sma200!=null?(tech.sma50>tech.sma200?"Bullish":"Bearish"):"Unavailable";
+    const priceVs20=data.price!=null&&tech.sma20!=null?(data.price>tech.sma20?"Above SMA20":"Below SMA20"):"Unavailable";
     setText("smaStatus",trend20_50);setText("smaLongStatus",trend50_200);setText("priceTrend",priceVs20);setText("rsiPosition",rsiState);
-    setText("analysisRsiState",rsiState);setText("analysisMomentum",momentum);setText("analysisTrend",trend20_50==="Bullish"&&trend50_200==="Bullish"?"Bullish trend":trend20_50==="Bearish"&&trend50_200==="Bearish"?"Bearish trend":"Mixed trend");
-    const marker=document.getElementById("analysisRsiMarker"); if(marker) marker.style.left=(rsi==null?"50%":Math.max(0,Math.min(100,rsi))+"%");
-    const rsiScore=rsi==null?50:rsi<30?88:rsi<45?68:rsi<=70?55:rsi<=80?35:18;
-    const trendScore=(trend20_50==="Bullish"?25:trend20_50==="Bearish"?0:12)+(trend50_200==="Bullish"?25:trend50_200==="Bearish"?0:12);
-    const score=Math.round(Math.max(0,Math.min(100,(rsiScore+trendScore)/1.5)));
-    setText("analysisScore",(rsi==null?"--":score+"/100"));
-    const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=rsi==null?"0%":score+"%";scoreFill.style.background=score>=70?"#22c55e":score>=45?"#f59e0b":"#ef4444";}
-    setText("smaLongStatus",trend50_200);
-    setText("yearValue","Year "+(Number.isFinite(data.yearChange)?percent(data.yearChange):"--"));
-    
-function renderFinancials(fund){
-  const quarters=(fund?.quarterlyRows||[]).filter(r=>r?.date).slice(0,8);
-  const years=(fund?.annualRows||[]).filter(r=>r?.date).slice(0,5);
-  const renderRows=(rows)=>rows.length?'<table style="width:100%;border-collapse:collapse;font-size:9px;min-width:520px"><thead><tr><th style="text-align:left;color:#7C8DB0;padding:5px">Period</th><th style="text-align:right;color:#7C8DB0;padding:5px">Revenue</th><th style="text-align:right;color:#7C8DB0;padding:5px">EBITDA</th><th style="text-align:right;color:#7C8DB0;padding:5px">PAT</th><th style="text-align:right;color:#7C8DB0;padding:5px">EPS</th></tr></thead><tbody>'+rows.map(r=>'<tr><td style="padding:6px;border-top:1px solid #1e2d5a">'+new Date(r.date*1000).toLocaleDateString("en-IN",{month:"short",year:"numeric"})+'</td><td style="padding:6px;text-align:right;border-top:1px solid #1e2d5a">'+formatCompactNumber(r.revenue)+'</td><td style="padding:6px;text-align:right;border-top:1px solid #1e2d5a">'+formatCompactNumber(r.ebitda)+'</td><td style="padding:6px;text-align:right;border-top:1px solid #1e2d5a">'+formatCompactNumber(r.pat??r.netIncome)+'</td><td style="padding:6px;text-align:right;border-top:1px solid #1e2d5a">'+(Number.isFinite(r.eps)?r.eps.toFixed(2):"--")+'</td></tr>').join("")+'</tbody></table>':'<div style="color:#7C8DB0;font-size:10px;padding:8px 0">No exchange filing data available for this period.</div>';
-  setText("financialPeriodLabel",(quarters.length?"Quarterly":"Financial")+" performance • latest "+(quarters[0]?.date?new Date(quarters[0].date*1000).toLocaleDateString("en-IN",{month:"short",year:"numeric"}):"--"));
-  const qt=document.getElementById("financialTable"); if(qt) qt.innerHTML=renderRows(quarters);
-  const at=document.getElementById("annualFinancialTable"); if(at) at.innerHTML=renderRows(years);
-  const source=fund?.source||"Financial data";
-  setText("financialSourceBadge",source.startsWith("NSE")?"NSE FILING":source.startsWith("Yahoo")?"YAHOO FALLBACK":"--");
-  setText("financialMeta",(fund?.mode||"")+(fund?.updatedAt?" • updated "+new Date(fund.updatedAt).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"}):"")+(fund?.sourceUrl?" • Official filing linked":""));
-}
-
-    const applyFundamentals=(fund)=>{
-      renderFinancials(fund);
-      setText("fundSource",fund?.source||"Company financial data");
-      setText("f_pe",Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--");setText("f_eps",Number.isFinite(fund?.eps)?money(fund.eps):"--");setText("f_mcap",formatCompactNumber(fund?.mcap));setText("f_book",Number.isFinite(fund?.bookValue)?money(fund.bookValue):"--");setText("f_div",Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--");setText("f_roe",Number.isFinite(fund?.roe)?fund.roe.toFixed(1)+"%":"--");setText("f_roa",Number.isFinite(fund?.roa)?fund.roa.toFixed(1)+"%":"--");setText("f_de",Number.isFinite(fund?.debtEquity)?fund.debtEquity.toFixed(1):"--");setText("f_rg",Number.isFinite(fund?.revenueGrowth)?fund.revenueGrowth.toFixed(1)+"%":"--");setText("f_eg",Number.isFinite(fund?.earningsGrowth)?fund.earningsGrowth.toFixed(1)+"%":"--");setText("f_om",Number.isFinite(fund?.operatingMargin)?fund.operatingMargin.toFixed(1)+"%":"--");setText("f_pm",Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--");setText("f_rev",formatCompactNumber(fund?.totalRevenue));setText("f_ni",formatCompactNumber(fund?.netIncome));setText("f_fcf",formatCompactNumber(fund?.freeCashFlow));setText("f_beta",Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--");
-      setText("peValue","P/E "+(Number.isFinite(fund?.pe)?fund.pe.toFixed(2):"--"));setText("mcapValue","M-Cap "+formatCompactNumber(fund?.mcap));setText("betaValue","Beta "+(Number.isFinite(fund?.beta)?fund.beta.toFixed(2):"--"));
-      setText("divValue","Div "+(Number.isFinite(fund?.div)?fund.div.toFixed(2)+"%":"--"));setText("profitValue","Profit "+(Number.isFinite(fund?.pm)?fund.pm.toFixed(1)+"%":"--"));
-    };
-    // Paint the valuation snapshot immediately, then replace it with the complete NSE filing data.
-    getFastFundamentals(symbol).then(fast=>{if(requestId===stockRequestId)applyFundamentals(fast);}).catch(()=>{});
-    getFundamentals(symbol).then(fund=>{if(requestId===stockRequestId)applyFundamentals(fund);}).catch(()=>{});
-    setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
-    const ai=getAISignal(data.rsi,data.sma20,data.sma50);
-    setText("aiSignal",ai.t);setText("aiDesc",ai.t==="STRONG BUY"?"Oversold conditions with positive momentum":ai.t==="BUY"?"Momentum and short-term trend align":"Technical conditions do not show a strong buy setup");setText("t_signal",ai.t);
-    setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.t==="STRONG BUY"?"Oversold conditions detected":ai.t==="BUY"?"Short-term trend supports the signal":ai.t==="STRONG SELL"?"Overbought conditions detected":"Wait for stronger confirmation");
+    setText("analysisRsiState",rsiState);setText("analysisMomentum",momentum);
+    setText("analysisTrend",tech.trendScore>=4?"Strong bullish":tech.trendScore>=2?"Bullish":tech.trendScore<=-4?"Strong bearish":tech.trendScore<=-2?"Bearish":"Mixed");
+    const marker=document.getElementById("analysisRsiMarker"); if(marker) marker.style.left=(tech.rsi==null?"50%":Math.max(0,Math.min(100,tech.rsi))+"%");
+    const ai=getAISignal(tech);
+    setText("analysisScore",ai.score+"/100");setText("aiSignal",ai.t);setText("t_signal",ai.t);setText("aiDesc",ai.desc);setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.desc);
+    const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=ai.score+"%";scoreFill.style.background=ai.c;}
     document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
+    
+    setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
     getNews(symbol).then(news=>{if(requestId===stockRequestId)renderNews(news);}).catch(()=>renderNews([]));
   }catch(error){
     setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";console.warn("[StockSense]",error);
