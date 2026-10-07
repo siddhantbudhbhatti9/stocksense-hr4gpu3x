@@ -23,7 +23,7 @@ export async function getFastQuote(symbol){
   // Yahoo's v7 quote endpoint now requires a crumb/cookie session and can return
   // HTTP 401. The public chart endpoint remains available without that session,
   // so use it for the fast quote path as well.
-  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=5d&events=history";
+  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=1y&events=history";
   const json=await fetchYahoo(url);
   const result=json?.chart?.result?.[0];
   const meta=result?.meta;
@@ -37,8 +37,8 @@ export async function getFastQuote(symbol){
     high:Number.isFinite(meta?.regularMarketDayHigh)?meta.regularMarketDayHigh:(quote?.high||[]).filter(Number.isFinite).slice(-1)[0]??null,
     low:Number.isFinite(meta?.regularMarketDayLow)?meta.regularMarketDayLow:(quote?.low||[]).filter(Number.isFinite).slice(-1)[0]??null,
     vol:Number.isFinite(meta?.regularMarketVolume)?meta.regularMarketVolume:(quote?.volume||[]).filter(Number.isFinite).slice(-1)[0]??null,
-    high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:null,
-    low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:null
+    high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:Math.max(...closes),
+    low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:Math.min(...closes)
   };
   batchQuoteCache.set("fast:"+key,{time:Date.now(),data:normalized});
   return normalized;
