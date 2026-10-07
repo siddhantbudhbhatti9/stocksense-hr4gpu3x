@@ -332,7 +332,8 @@ function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
   const weekday=day!=="Sat"&&day!=="Sun";
   return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute"),weekday:day};
 }
-async function loadGeneralMarketNews(){ try{ const items=await getNews("MARKET"); renderNews(items); }catch{ renderNews([]); } }\nasync function loadGlobalMarket(){
+async function loadGeneralMarketNews(){ try{ const items=await getNews("MARKET"); renderNews(items); }catch{ renderNews([]); } }
+async function loadGlobalMarket(){
   const markets=[
     ["^NSEI","NIFTY 50","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
     ["^BSESN","SENSEX","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
