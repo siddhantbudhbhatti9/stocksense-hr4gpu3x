@@ -20,37 +20,20 @@ export async function getFastQuote(symbol){
   const key=String(symbol).toUpperCase();
   const cached=batchQuoteCache.get("fast:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  // Yahoo's v7 quote endpoint now requires a crumb/cookie session and can return
-  // HTTP 401. The public chart endpoint remains available without that session,
-  // so use it for the fast quote path as well.
-  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=1y&events=history";
-  const json=await fetchYahoo(url);
-  const result=json?.chart?.result?.[0];
-  const meta=result?.meta;
-  const quote=result?.indicators?.quote?.[0];
-  const closes=(quote?.close||[]).filter(Number.isFinite);
-  const price=Number.isFinite(meta?.regularMarketPrice)?meta.regularMarketPrice:closes[closes.length-1];
-  const prev=Number.isFinite(meta?.previousClose)?meta.previousClose:(closes.length>=2?closes[closes.length-2]:null);
-  if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) throw new Error("Live quote unavailable for "+symbol);
-  const normalized={
-    symbol:key,price,prev,change:price-prev,changePct:(price-prev)/prev*100,
-    // Keep the full daily history from the same request. The stock screen and
-    // technical engine must consume one authoritative data payload instead of
-    // making a second history request that can fail independently.
-    closes,
-    timestamps:result.timestamp||[],
-    opens:quote?.open||[],
-    highs:quote?.high||[],
-    lows:quote?.low||[],
-    volumes:quote?.volume||[],
-    high:Number.isFinite(meta?.regularMarketDayHigh)?meta.regularMarketDayHigh:(quote?.high||[]).filter(Number.isFinite).slice(-1)[0]??null,
-    low:Number.isFinite(meta?.regularMarketDayLow)?meta.regularMarketDayLow:(quote?.low||[]).filter(Number.isFinite).slice(-1)[0]??null,
-    vol:Number.isFinite(meta?.regularMarketVolume)?meta.regularMarketVolume:(quote?.volume||[]).filter(Number.isFinite).slice(-1)[0]??null,
-    high52:Number.isFinite(meta?.fiftyTwoWeekHigh)?meta.fiftyTwoWeekHigh:Math.max(...closes),
-    low52:Number.isFinite(meta?.fiftyTwoWeekLow)?meta.fiftyTwoWeekLow:Math.min(...closes)
+  const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y",{cache:"no-store"});
+  if(!response.ok) throw new Error("Market data endpoint returned "+response.status);
+  const json=await response.json();
+  const q=json?.quotes?.[0];
+  if(!q) throw new Error("Live quote unavailable for "+symbol);
+  const data={
+    symbol:key,price:q.price,prev:q.prev,
+    change:q.change,changePct:q.changePct,
+    closes:q.closes||[],timestamps:q.timestamps||[],
+    opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[],
+    high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52
   };
-  batchQuoteCache.set("fast:"+key,{time:Date.now(),data:normalized});
-  return normalized;
+  batchQuoteCache.set("fast:"+key,{time:Date.now(),data});
+  return data;
 }
 
 export async function getTechnicalData(symbol){
@@ -149,42 +132,38 @@ export async function getQuotesBatch(symbols){
   const cached=batchQuoteCache.get(key);
   if(cached && Date.now()-cached.time<BATCH_CACHE_MS) return cached.data;
   if(batchQuoteInFlight.has(key)) return batchQuoteInFlight.get(key);
+
   const promise=(async()=>{
-    // Do not use Yahoo v7 /quote here: it now requires crumb/cookie auth.
-    // Fetch the public chart endpoint concurrently for each symbol instead.
     const result=new Map();
-    await Promise.all(unique.map(async symbol=>{
-      try{
-        const q=await getFastQuote(symbol);
-        result.set(symbol,q);
-      }catch{}
-    }));
+    try{
+      const response=await fetch("/api/market?symbols="+encodeURIComponent(unique.join(","))+"&range=5d",{cache:"no-store"});
+      if(response.ok){
+        const json=await response.json();
+        for(const q of (json?.quotes||[])){
+          if(q?.symbol && Number.isFinite(q.price) && Number.isFinite(q.prev) && q.prev!==0) result.set(String(q.symbol).toUpperCase(),q);
+        }
+      }
+    }catch{}
+
+    // If the batch endpoint is temporarily unavailable, keep the UI useful by
+    // retrying only the missing symbols with a small client-side concurrency cap.
+    if(result.size<unique.length){
+      const missing=unique.filter(s=>!result.has(s));
+      let cursor=0;
+      const worker=async()=>{
+        while(cursor<missing.length){
+          const symbol=missing[cursor++];
+          try{ result.set(symbol,await getFastQuote(symbol)); }catch{}
+        }
+      };
+      await Promise.all([worker(),worker(),worker()]);
+    }
     batchQuoteCache.set(key,{time:Date.now(),data:result});
     return result;
   })();
+
   batchQuoteInFlight.set(key,promise);
-  try{
-    const result=await promise;
-    if(result.size===unique.length) return result;
-    // A partial batch is still useful; fill only missing symbols individually.
-    await Promise.all(unique.filter(s=>!result.has(s)).map(async symbol=>{
-      try{
-        const q=await getFastQuote(symbol);
-        result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
-      }catch{}
-    }));
-    batchQuoteCache.set(key,{time:Date.now(),data:result});
-    return result;
-  }catch{
-    const result=new Map();
-    await Promise.all(unique.map(async symbol=>{
-      try{
-        const q=await getFastQuote(symbol);
-        result.set(symbol,{symbol,price:q.price,prev:q.prev,change:q.price-q.prev,changePct:(q.price-q.prev)/q.prev*100,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52});
-      }catch{}
-    }));
-    return result;
-  }finally{batchQuoteInFlight.delete(key);}
+  try{return await promise;}finally{batchQuoteInFlight.delete(key);}
 }
 
 function rawValue(node){
