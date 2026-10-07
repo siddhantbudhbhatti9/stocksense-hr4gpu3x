@@ -332,7 +332,7 @@ function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
   const weekday=day!=="Sat"&&day!=="Sun";
   return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute"),weekday:day};
 }
-async function loadGlobalMarket(){
+async function loadGeneralMarketNews(){ try{ const items=await getNews("MARKET"); renderNews(items); }catch{ renderNews([]); } }\nasync function loadGlobalMarket(){
   const markets=[
     ["^NSEI","NIFTY 50","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
     ["^BSESN","SENSEX","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
@@ -415,7 +415,8 @@ async function init(){
   loadPortfolio();
   loadStock(currentSymbol);
   loadGlobalMarket();
-  const setTab=(tab)=>{const dash=document.getElementById("ss-dashboard-view"),market=document.getElementById("ss-market-view"),d=document.getElementById("tabDashboard"),m=document.getElementById("tabMarket");const isMarket=tab==="market";dash.style.display=isMarket?"none":"";market.style.display=isMarket?"":"none";d.style.background=isMarket?"#121a33":"#00d4ff";d.style.color=isMarket?"#9fb0cf":"#06101f";m.style.background=isMarket?"#00d4ff":"#121a33";m.style.color=isMarket?"#06101f":"#9fb0cf";if(isMarket)loadGlobalMarket();};
+  loadGeneralMarketNews();
+  const setTab=(tab)=>{const dash=document.getElementById("ss-dashboard-view"),market=document.getElementById("ss-market-view"),d=document.getElementById("tabDashboard"),m=document.getElementById("tabMarket");const isMarket=tab==="market";dash.style.display=isMarket?"none":"";market.style.display=isMarket?"":"none";d.style.background=isMarket?"#121a33":"#00d4ff";d.style.color=isMarket?"#9fb0cf":"#06101f";m.style.background=isMarket?"#00d4ff":"#121a33";m.style.color=isMarket?"#06101f":"#9fb0cf";if(isMarket){loadGlobalMarket();loadGeneralMarketNews();}};
   document.getElementById("tabDashboard").onclick=()=>setTab("dashboard");
   document.getElementById("tabMarket").onclick=()=>setTab("market");
   const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
