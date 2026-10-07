@@ -92,7 +92,7 @@ function installDesignSystem(){
     .ss-trend-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:#0e1429;border-radius:8px;border:1px solid rgba(91,121,180,.14)}
     .ss-trend-name{font-size:9px;color:#7890b8}.ss-trend-value{font-size:10px;font-weight:800}
     @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}.ss-tech-grid{grid-template-columns:repeat(2,1fr)!important}} @media(max-width:520px){.ss-tech-grid{grid-template-columns:1fr!important}}
-    @media(max-width:1080px){#ss-shell{grid-template-columns:300px 1fr!important}#ss-right-panel{display:none!important}}
+    @media(max-width:1080px){#ss-shell{grid-template-columns:270px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
     @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}}
   `; document.head.appendChild(style);
@@ -112,12 +112,12 @@ function ensureUI(){
       <button id="tabMarket" type="button" style="padding:9px 18px;border-radius:10px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:11px;font-weight:850;cursor:pointer">Market Overview</button>
     </div>
     <div id="ss-dashboard-view">
-    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:350px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
+    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
       <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:850">My Portfolio</div><div id="portfolioCount" style="font-size:9px;color:#7C8DB0">0 / 30 stocks tracked</div></div></div></div>
         <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Search symbol to add" style="flex:1;padding:8px 12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="portfolioSearchBtn" style="padding:8px 12px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+ Add</button></div><div style="font-size:9px;color:#7C8DB0;margin-top:6px">Add up to 30 NSE/BSE stocks.</div></div>
         <div style="display:grid;grid-template-columns:1fr 68px 70px 58px 24px;gap:8px;padding:8px 14px;font-size:9px;color:#7C8DB0;font-weight:700;border-bottom:1px solid #1e2d5a;background:#0e1429"><span>Stocks</span><span style="text-align:right">LTP</span><span style="text-align:right">Price Chg</span><span style="text-align:right">% Chg</span><span></span></div>
-        <div id="portfolioList" style="flex:1;overflow:auto;min-height:320px;padding:4px 0"></div>
+        <div id="portfolioList" style="flex:1;overflow:auto;min-height:220px;max-height:420px;padding:4px 0"></div>
         <div style="padding:10px 14px;border-top:1px solid #1e2d5a;display:flex;justify-content:space-between;font-size:10px;background:#0e1429"><div>Top Gainer: <b id="portfolioTopGainer" style="color:#00ff88">--</b></div><div>Loser: <b id="portfolioTopLoser" style="color:#ff4444">--</b></div></div>
       </div>
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
@@ -146,9 +146,7 @@ function ensureUI(){
               <div class="ss-rsi-labels"><span>Oversold</span><span>Neutral</span><span>Overbought</span></div>
             </div>
           </div>
-          <div class="ss-metrics" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">P/E • M-CAP • BETA</div><div id="peValue" style="font-size:12px;font-weight:700;margin-top:2px">--</div><div id="mcapValue" style="font-size:10px;color:#7C8DB0"></div><div id="betaValue" style="font-size:10px;color:#7C8DB0"></div></div>
-            <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">DIV • PROFIT • YEAR</div><div id="divValue" style="margin-top:2px">--</div><div id="profitValue" style="font-size:10px">--</div><div id="yearValue" style="font-size:10px">--</div></div>
+          <div class="ss-metrics" style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px">
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">MOVING AVERAGES</div><div style="font-size:10px;margin-top:3px">20: <b id="sma20">--</b> · 50: <b id="sma50">--</b></div><div style="font-size:10px">200: <b id="sma200">--</b></div></div>
             <div style="background:#070d2b;border:1px solid #1e2d5a;border-radius:10px;padding:10px"><div style="font-size:8px;color:#7C8DB0">RSI POSITION</div><div id="rsiPosition" style="font-size:12px;font-weight:800;margin-top:4px">--</div><div style="font-size:9px;color:#7C8DB0;margin-top:3px">14-period momentum</div></div>
           </div>
