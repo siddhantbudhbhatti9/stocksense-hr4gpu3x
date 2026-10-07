@@ -34,6 +34,15 @@ export async function getFastQuote(symbol){
   if(!Number.isFinite(price)||!Number.isFinite(prev)||prev===0) throw new Error("Live quote unavailable for "+symbol);
   const normalized={
     symbol:key,price,prev,change:price-prev,changePct:(price-prev)/prev*100,
+    // Keep the full daily history from the same request. The stock screen and
+    // technical engine must consume one authoritative data payload instead of
+    // making a second history request that can fail independently.
+    closes,
+    timestamps:result.timestamp||[],
+    opens:quote?.open||[],
+    highs:quote?.high||[],
+    lows:quote?.low||[],
+    volumes:quote?.volume||[],
     high:Number.isFinite(meta?.regularMarketDayHigh)?meta.regularMarketDayHigh:(quote?.high||[]).filter(Number.isFinite).slice(-1)[0]??null,
     low:Number.isFinite(meta?.regularMarketDayLow)?meta.regularMarketDayLow:(quote?.low||[]).filter(Number.isFinite).slice(-1)[0]??null,
     vol:Number.isFinite(meta?.regularMarketVolume)?meta.regularMarketVolume:(quote?.volume||[]).filter(Number.isFinite).slice(-1)[0]??null,
@@ -48,15 +57,22 @@ export async function getTechnicalData(symbol){
   const key=String(symbol).toUpperCase();
   const cached=quoteCache.get("technical:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range=1y&events=history";
-  const json=await fetchYahoo(url);
-  const result=json?.chart?.result?.[0];
-  const quote=result?.indicators?.quote?.[0];
-  const closes=(quote?.close||[]).filter(Number.isFinite);
-  if(!result || closes.length<2) throw new Error("Technical history unavailable for "+symbol);
-  const data={closes,timestamps:result.timestamp||[],opens:quote?.open||[],highs:quote?.high||[],lows:quote?.low||[],volumes:quote?.volume||[]};
-  quoteCache.set("technical:"+key,{time:Date.now(),data});
-  return data;
+  // Some Yahoo responses are shorter than a full year. Try progressively
+  // smaller daily windows, but never fabricate values or accept an unusable set.
+  for(const range of ["1y","6mo","3mo","1mo"]){
+    const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range="+range+"&events=history";
+    try{
+      const json=await fetchYahoo(url);
+      const result=json?.chart?.result?.[0];
+      const quote=result?.indicators?.quote?.[0];
+      const closes=(quote?.close||[]).filter(Number.isFinite);
+      if(!result || closes.length<20) continue;
+      const data={closes,timestamps:result.timestamp||[],opens:quote?.open||[],highs:quote?.high||[],lows:quote?.low||[],volumes:quote?.volume||[]};
+      quoteCache.set("technical:"+key,{time:Date.now(),data});
+      return data;
+    }catch{}
+  }
+  throw new Error("Technical history unavailable for "+symbol);
 }
 const CACHE_MS=30000;
 const BATCH_CACHE_MS=30000;
