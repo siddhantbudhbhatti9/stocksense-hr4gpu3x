@@ -1,4 +1,4 @@
-import { getQuote, getQuotesBatch, getFastStockData, getFastFundamentals, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getFastFundamentals, getFundamentals, getNews, getAISignal, formatCompactNumber, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
 import { defaultWatchlist, nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -300,13 +300,23 @@ async function loadStock(symbol){
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
   try{
-    const data=await getFastStockData(symbol);
-    data.fund={};
+    const data=await getFastQuote(symbol);
     if(requestId!==stockRequestId)return;
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
+    setText("rsiValue","Loading…");setText("sma20","Loading…");setText("sma50","Loading…");setText("sma200","Loading…");
+    let technical=null;
+    try{ technical=await getTechnicalData(symbol); }catch(error){ console.warn("[StockSense] technical data",error); }
+    if(requestId!==stockRequestId)return;
+    const closes=technical?.closes||[];
+    data.rsi=calcRSI(closes);
+    data.sma20=calcSMA(closes,20);
+    data.sma50=calcSMA(closes,50);
+    data.sma200=calcSMA(closes,200);
+    const first=closes[0];
+    data.yearChange=first ? ((data.price-first)/first)*100 : null;
     setText("rsiValue",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");
     setText("sma20",money(data.sma20));setText("sma50",money(data.sma50));setText("sma200",money(data.sma200));
     const rsi=Number.isFinite(data.rsi)?data.rsi:null;
