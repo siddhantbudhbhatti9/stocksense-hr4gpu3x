@@ -1,0 +1,41 @@
+name: Refresh NSE and BSE stock catalog
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 12 * * *" # 18:00 IST, after the cash market closes
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stock-catalog-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the production source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Refresh exchange listings and eligible Yahoo data
+        run: node scripts/sync-stock-catalog.mjs --out .stock-sync-output
+        env:
+          STOCK_DATA_URL: https://github.com/${{ github.repository }}/releases/latest/download/stock-data.json.gz
+
+      - name: Publish a data-only release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="stock-data-${GITHUB_RUN_ID}"
+          date="$(TZ=Asia/Kolkata date '+%Y-%m-%d')"
+          gh release create "$tag" .stock-sync-output/stock-data.json.gz \
+            --title "StockSense data refresh $date" \
+            --notes "Automated exchange catalog, Yahoo data readiness, notification feed, and sync log." \
+            --target "$GITHUB_SHA" \
+            --latest
+

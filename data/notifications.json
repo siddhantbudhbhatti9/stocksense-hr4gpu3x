@@ -1,0 +1,307 @@
+[
+  {
+    "id": "9cedd9f33488e834",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "A-One Steels India Limited (NSE) was listed on 2026-10-01. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-15.",
+    "symbol": "AONESTEELS.NS",
+    "company": "A-One Steels India Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-01",
+    "expectedDate": "2026-10-15",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.036Z"
+  },
+  {
+    "id": "3bc1ff05190e9199",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "AceVector Limited (NSE) was listed on 2026-10-05. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-19.",
+    "symbol": "ACEVECTOR.NS",
+    "company": "AceVector Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-05",
+    "expectedDate": "2026-10-19",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.036Z"
+  },
+  {
+    "id": "b7c484ea909521d9",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Adroit Industries (India) Limited (NSE) was listed on 2026-09-30. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-14.",
+    "symbol": "ADROITIND.NS",
+    "company": "Adroit Industries (India) Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-30",
+    "expectedDate": "2026-10-14",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.036Z"
+  },
+  {
+    "id": "af14f33872bbefcd",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "ArMee Infotech Limited (NSE) was listed on 2026-09-30. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-14.",
+    "symbol": "ARMEE.NS",
+    "company": "ArMee Infotech Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-30",
+    "expectedDate": "2026-10-14",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.036Z"
+  },
+  {
+    "id": "b78f691480ab3573",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Elevate Campuses Limited (NSE) was listed on 2026-09-30. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-14.",
+    "symbol": "ELEVATE.NS",
+    "company": "Elevate Campuses Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-30",
+    "expectedDate": "2026-10-14",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "d660cabc864c17dd",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "German Green Steel and Power Limited (NSE) was listed on 2026-10-05. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-19.",
+    "symbol": "GERMAN.NS",
+    "company": "German Green Steel and Power Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-05",
+    "expectedDate": "2026-10-19",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "3d389a93096a3a7c",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "GSPL Transmission Limited (NSE) was listed on 2026-09-30. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-14.",
+    "symbol": "GSPLTRANS.NS",
+    "company": "GSPL Transmission Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-30",
+    "expectedDate": "2026-10-14",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "5c3487b2a462b136",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Jyoti Resins & Adhesives Limited (NSE) was listed on 2026-10-08. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-22.",
+    "symbol": "JYOTIRES.NS",
+    "company": "Jyoti Resins & Adhesives Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-08",
+    "expectedDate": "2026-10-22",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "07a4c4a1299eb790",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Moneyview Limited (NSE) was listed on 2026-10-01. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-15.",
+    "symbol": "MONEYVIEW.NS",
+    "company": "Moneyview Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-01",
+    "expectedDate": "2026-10-15",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "3f78e68457abe93e",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Nityas Gems and Jewellery Limited (NSE) was listed on 2026-10-08. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-22.",
+    "symbol": "NITYAS.NS",
+    "company": "Nityas Gems and Jewellery Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-08",
+    "expectedDate": "2026-10-22",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "53631b3fef8a7a6d",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Orient Cables (India) Limited (NSE) was listed on 2026-10-05. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-19.",
+    "symbol": "ORIENTCABL.NS",
+    "company": "Orient Cables (India) Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-05",
+    "expectedDate": "2026-10-19",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "b6daa7fe7cc5b131",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Parin Enterprises Limited (NSE) was listed on 2026-09-25. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-09.",
+    "symbol": "PARIN.NS",
+    "company": "Parin Enterprises Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-25",
+    "expectedDate": "2026-10-09",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "6464587e1e6c7e32",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Runwal Enterprises Limited (NSE) was listed on 2026-10-05. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-19.",
+    "symbol": "RUNWALENTR.NS",
+    "company": "Runwal Enterprises Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-05",
+    "expectedDate": "2026-10-19",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "23076beaf9986151",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Shah Investor's Home Limited (NSE) was listed on 2026-10-06. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-20.",
+    "symbol": "SHAHINVEST.NS",
+    "company": "Shah Investor's Home Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-06",
+    "expectedDate": "2026-10-20",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "be6a3850e8fb4e2c",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "SRIT India Limited (NSE) was listed on 2026-10-06. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-20.",
+    "symbol": "SRIT.NS",
+    "company": "SRIT India Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-06",
+    "expectedDate": "2026-10-20",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "b3a5085f6a8e311b",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Swastika Infra Limited (NSE) was listed on 2026-09-30. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-14.",
+    "symbol": "SWASTIKAIN.NS",
+    "company": "Swastika Infra Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-30",
+    "expectedDate": "2026-10-14",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "469d8e28afd0c061",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Uday Jewellery Industries Limited (NSE) was listed on 2026-09-25. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-09.",
+    "symbol": "UDAYJEW.NS",
+    "company": "Uday Jewellery Industries Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-25",
+    "expectedDate": "2026-10-09",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "4ed497ee324b0254",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Varmora Granito Limited (NSE) was listed on 2026-09-29. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-13.",
+    "symbol": "VARMORA.NS",
+    "company": "Varmora Granito Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-09-29",
+    "expectedDate": "2026-10-13",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  },
+  {
+    "id": "9298bd0ffc49ab26",
+    "kind": "new-listing",
+    "title": "New listing",
+    "message": "Vishal Nirmiti Limited (NSE) was listed on 2026-10-08. Fundamental and technical data are unavailable during the 14-day new-listing period. Real data is expected after 2026-10-22.",
+    "symbol": "VNL.NS",
+    "company": "Vishal Nirmiti Limited",
+    "exchange": "NSE",
+    "listingDate": "2026-10-08",
+    "expectedDate": "2026-10-22",
+    "missingData": [
+      "technical",
+      "fundamental"
+    ],
+    "createdAt": "2026-10-08T18:00:12.037Z"
+  }
+]
+

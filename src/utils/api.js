@@ -13,6 +13,61 @@ const fundFastCache=new Map();
 const newsCache=new Map();
 const marketCapCache=new Map();
 const marketCapInFlight=new Map();
+const stockCatalogCache=new Map();
+const stockDataCache=new Map();
+
+export async function getStockCatalogPage(offset=0,limit=30){
+  const params=new URLSearchParams({offset:String(Math.max(0,offset)),limit:String(Math.max(1,Math.min(100,limit)))});
+  const response=await fetch("/api/stocks?"+params.toString(),{cache:"no-store"});
+  if(!response.ok)throw new Error("Stock catalog returned "+response.status);
+  const json=await response.json();
+  return {items:Array.isArray(json?.stocks)?json.stocks:[],total:Number(json?.total)||0,hasMore:Boolean(json?.hasMore),updatedAt:json?.updatedAt||null};
+}
+
+export async function getStocksBySymbols(symbols=[]){
+  const unique=[...new Set(symbols.map(s=>String(s||"").toUpperCase()).filter(Boolean))].slice(0,30);
+  if(!unique.length)return [];
+  const key=unique.join(",");
+  const cached=stockCatalogCache.get(key);
+  if(cached&&Date.now()-cached.time<60_000)return cached.items;
+  const response=await fetch("/api/stocks?symbols="+encodeURIComponent(key),{cache:"no-store"});
+  if(!response.ok)throw new Error("Stock catalog returned "+response.status);
+  const json=await response.json();
+  const items=Array.isArray(json?.stocks)?json.stocks:[];
+  stockCatalogCache.set(key,{time:Date.now(),items});
+  return items;
+}
+
+export async function getCatalogStock(symbol){
+  const key=String(symbol||"").toUpperCase();
+  if(!key)return null;
+  const cached=stockCatalogCache.get("one:"+key);
+  if(cached&&Date.now()-cached.time<60_000)return cached.stock;
+  const response=await fetch("/api/stocks?symbol="+encodeURIComponent(key),{cache:"no-store"});
+  if(!response.ok)throw new Error("Stock catalog returned "+response.status);
+  const json=await response.json();
+  stockCatalogCache.set("one:"+key,{time:Date.now(),stock:json?.stock||null});
+  return json?.stock||null;
+}
+
+export async function getSavedStockData(symbol){
+  const key=String(symbol||"").toUpperCase();
+  const cached=stockDataCache.get(key);
+  if(cached&&Date.now()-cached.time<5*60_000)return cached.data;
+  const response=await fetch("/api/stock-data?symbol="+encodeURIComponent(key),{cache:"no-store"});
+  if(!response.ok)throw new Error("Saved stock data returned "+response.status);
+  const json=await response.json();
+  const data=json?.data||null;
+  stockDataCache.set(key,{time:Date.now(),data});
+  return data;
+}
+
+export async function getCatalogNotifications(){
+  const response=await fetch("/api/notifications",{cache:"no-store"});
+  if(!response.ok)throw new Error("Notifications returned "+response.status);
+  const json=await response.json();
+  return Array.isArray(json?.notifications)?json.notifications:[];
+}
 
 export async function getFastQuote(symbol){
   const key=String(symbol).toUpperCase();
@@ -47,7 +102,7 @@ export async function getTechnicalData(symbol){
   if(!response.ok) throw new Error("Market history endpoint returned "+response.status);
   const json=await response.json();
   const q=json?.quotes?.[0];
-  if(!q || !Array.isArray(q.closes) || q.closes.length<20) throw new Error("Technical history unavailable for "+symbol);
+  if(!q || !Array.isArray(q.closes) || q.closes.length<2) throw new Error("Technical history unavailable for "+symbol);
   const data={closes:q.closes,timestamps:q.timestamps||[],opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[]};
   quoteCache.set("technical:"+key,{time:Date.now(),data});
   return data;
@@ -487,8 +542,18 @@ export async function getMarketOverview(){
 export async function searchSymbols(query){
   const q=String(query||"").trim();
   if(!q) return [];
-  const json=await fetchYahoo(YAHOO_SEARCH+encodeURIComponent(q)+"&quotesCount=15&newsCount=0");
-  return (json?.quotes||[]).filter(x=>x?.symbol&&/\.(NS|BO)$/i.test(x.symbol)).map(x=>({symbol:x.symbol.toUpperCase(),display:x.symbol.replace(/\.(NS|BO)$/i,""),name:x.longname||x.shortname||x.symbol,exchange:x.exchange==="BSE"||x.symbol.endsWith(".BO")?"BSE":"NSE",cap:null}));
+  const params=new URLSearchParams({query:q,limit:"12"});
+  const response=await fetch("/api/stocks?"+params.toString(),{cache:"no-store"});
+  if(!response.ok)throw new Error("Stock catalog returned "+response.status);
+  const json=await response.json();
+  return (json?.stocks||[]).map(stock=>({
+    ...stock,
+    symbol:String(stock.yahoo_ticker||stock.yahooTicker||""),
+    display:String(stock.symbol||""),
+    name:String(stock.company||stock.company_name||""),
+    exchange:stock.exchange||"NSE",
+    cap:null,
+  }));
 }
 
 export async function getMarketCap(symbol){
