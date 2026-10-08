@@ -1,52 +1,112 @@
-const HOSTS=["query1.finance.yahoo.com","query2.finance.yahoo.com"];
-const cache=new Map();
-const CACHE_MS=5*60*1000;
-const UPSTREAM_TIMEOUT_MS=2500;
+const FEEDS = [
+  { url: "https://www.moneycontrol.com/rss/marketreports.xml", publisher: "Moneycontrol" },
+  { url: "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms", publisher: "The Economic Times" },
+];
+const CACHE_MS = 5 * 60 * 1000;
+const UPSTREAM_TIMEOUT_MS = 3_500;
+const MAX_FEED_BYTES = 1_000_000;
+let cacheEntry = null;
 
-function headers(){
-  return {
-    "User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36",
-    "Accept":"application/json,text/plain,*/*",
-    "Accept-Language":"en-US,en;q=0.9"
-  };
+function decodeXml(value) {
+  return String(value || "")
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&#(x[\da-f]+|\d+);/gi, (_, code) => {
+      const point = code[0].toLowerCase() === "x"
+        ? Number.parseInt(code.slice(1), 16)
+        : Number.parseInt(code, 10);
+      return Number.isFinite(point) && point <= 0x10ffff ? String.fromCodePoint(point) : "";
+    })
+    .replace(/&(nbsp|quot|apos|lt|gt|amp|rsquo|lsquo|rdquo|ldquo|ndash|mdash|hellip|trade|copy);/gi, (_, entity) => ({
+      nbsp: " ", quot: '"', apos: "'", lt: "<", gt: ">", amp: "&",
+      rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", ndash: "–", mdash: "—", hellip: "…", trade: "™", copy: "©",
+    })[entity.toLowerCase()])
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
-export default async function handler(req,res){
-  const query=String(req.query?.query||"").trim();
-  const count=Math.min(10,Math.max(1,Number(req.query?.count||8)));
-  if(!query) return res.status(400).json({error:"Missing query"});
-  const key=query.toLowerCase()+"|"+count;
-  const cached=cache.get(key);
-  if(cached && Date.now()-cached.time<CACHE_MS){
-    res.setHeader("Content-Type","application/json");
-    res.setHeader("Cache-Control","public, s-maxage=300, stale-while-revalidate=900");
-    return res.status(200).json(cached.data);
+function readTag(xml, tag) {
+  const match = xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}\\s*>`, "i"));
+  return match ? decodeXml(match[1]) : "";
+}
+
+function validLink(value) {
+  try {
+    const url = new URL(value);
+    return ["http:", "https:"].includes(url.protocol) ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseItems(xml, publisher) {
+  const items = [];
+  for (const match of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item\s*>/gi)) {
+    const item = match[1];
+    const title = readTag(item, "title");
+    const link = validLink(readTag(item, "link") || readTag(item, "guid"));
+    if (!title || !link) continue;
+    const rawDate = readTag(item, "pubDate") || readTag(item, "published") || readTag(item, "date");
+    const timestamp = Date.parse(rawDate);
+    items.push({
+      title,
+      publisher,
+      link,
+      published: Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null,
+    });
+  }
+  return items;
+}
+
+async function fetchFeed(feed) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
+  try {
+    const response = await fetch(feed.url, {
+      headers: {
+        "User-Agent": "StockSense/1.0 (+https://stocksense-hr4gpu3x.vercel.app)",
+        Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`News feed returned ${response.status}`);
+    const xml = await response.text();
+    if (xml.length > MAX_FEED_BYTES) throw new Error("News feed exceeded the size limit");
+    return parseItems(xml, feed.publisher);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function normalizeCount(value) {
+  const count = Number(value);
+  return Math.min(8, Math.max(1, Number.isFinite(count) ? Math.floor(count) : 6));
+}
+
+export default async function handler(req, res) {
+  const count = normalizeCount(req.query?.count);
+  if (cacheEntry && Date.now() - cacheEntry.time < CACHE_MS) {
+    res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
+    return res.status(200).json({ news: cacheEntry.news.slice(0, count) });
   }
 
-  let lastStatus=502;
-  for(const host of HOSTS){
-    const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),UPSTREAM_TIMEOUT_MS);
-    try{
-      const url="https://"+host+"/v1/finance/search?q="+encodeURIComponent(query)+"&newsCount="+count+"&quotesCount=0";
-      const response=await fetch(url,{headers:headers(),cache:"no-store",signal:controller.signal});
-      const body=await response.text();
-      lastStatus=response.status;
-      if(!response.ok) continue;
-      const json=JSON.parse(body);
-      const news=(json?.news||[]).filter(item=>item?.title).slice(0,count).map(item=>({
-        title:item.title,
-        publisher:item.publisher||"Yahoo Finance",
-        link:item.link||null,
-        providerPublishTime:item.providerPublishTime||null
-      }));
-      const data={news};
-      cache.set(key,{time:Date.now(),data});
-      res.setHeader("Content-Type","application/json");
-      res.setHeader("Cache-Control","public, s-maxage=300, stale-while-revalidate=900");
-      return res.status(200).json(data);
-    }catch{}finally{clearTimeout(timer);}
-  }
-  res.setHeader("Cache-Control","no-store");
-  return res.status(lastStatus>=400&&lastStatus<600?lastStatus:502).json({error:"News provider unavailable",news:[]});
+  const results = await Promise.allSettled(FEEDS.map(fetchFeed));
+  const collected = results.flatMap((result) => result.status === "fulfilled" ? result.value : []);
+  const seen = new Set();
+  const news = collected
+    .filter((item) => {
+      const key = item.title.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((a, b) => (Date.parse(b.published || "") || 0) - (Date.parse(a.published || "") || 0))
+    .slice(0, count);
+
+  if (news.length) cacheEntry = { time: Date.now(), news };
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", news.length ? "public, s-maxage=300, stale-while-revalidate=900" : "no-store");
+  return res.status(200).json({ news });
 }
+

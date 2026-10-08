@@ -457,9 +457,9 @@ export async function getNews(symbol){
   const json=await response.json();
   const data=(json?.news||[]).filter(item=>item?.title).slice(0,6).map(item=>({
     title:item.title,
-    publisher:item.publisher||"Yahoo Finance",
+    publisher:item.publisher||"Market news",
     link:item.link||null,
-    published:item.providerPublishTime ? new Date(item.providerPublishTime*1000) : null
+    published:item.published ? new Date(item.published) : (item.providerPublishTime ? new Date(item.providerPublishTime*1000) : null)
   }));
   newsCache.set(key,{time:Date.now(),data});
   return data;
@@ -507,3 +507,4 @@ export async function getFinnhubCandles(){
 export function generateMockCandles(){
   return [];
 }
+

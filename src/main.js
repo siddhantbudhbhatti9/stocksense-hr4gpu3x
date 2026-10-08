@@ -53,6 +53,10 @@ function readStoredArray(key){
 function money(value){
   return Number.isFinite(value)?"₹"+value.toFixed(2):"--";
 }
+const indexNumberFormat=new Intl.NumberFormat("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
+function formatIndexNumber(value){
+  return Number.isFinite(value)?indexNumberFormat.format(value):"--";
+}
 function percent(value){
   return Number.isFinite(value)?(value>=0?"+":"")+value.toFixed(2)+"%":"--";
 }
@@ -75,7 +79,7 @@ function installDesignSystem(){
     .ss-global-card{background:#0e1429;border:1px solid rgba(91,121,180,.16);border-radius:11px;padding:12px}
     .ss-global-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
     .ss-global-name{font-size:10px;font-weight:850}.ss-global-region{font-size:8px;color:#7185aa;margin-top:2px}
-    .ss-global-price{font-size:16px;font-weight:900;margin-top:10px}.ss-global-change{font-size:9px;font-weight:800}
+    .ss-global-price{font-size:16px;font-weight:900;margin-top:10px;font-variant-numeric:tabular-nums}.ss-global-change{display:inline-flex;align-items:center;gap:5px;max-width:100%;margin-top:7px;padding:5px 8px;border-radius:999px;font-size:9px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
     .ss-global-time{margin-top:9px;padding-top:8px;border-top:1px solid rgba(91,121,180,.12);font-size:8px;color:#7C8DB0;line-height:13px}
     @media(max-width:900px){.ss-global-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:560px){.ss-global-grid{grid-template-columns:1fr}}
@@ -98,6 +102,9 @@ function installDesignSystem(){
     .ss-trend-list{display:grid;gap:7px;margin-top:8px}
     .ss-trend-row{display:flex;justify-content:space-between;align-items:center;padding:7px 8px;background:#0e1429;border-radius:8px;border:1px solid rgba(91,121,180,.14)}
     .ss-trend-name{font-size:9px;color:#7890b8}.ss-trend-value{font-size:10px;font-weight:800}
+    .ss-news-item{padding:9px 10px;background:#0e1429;border:1px solid rgba(91,121,180,.14);border-radius:8px;margin:6px 0}
+    .ss-news-title{font-size:11px;line-height:1.45;font-weight:700}
+    .ss-news-meta{font-size:9px;color:#7C8DB0;margin-top:5px}
     @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}.ss-tech-grid{grid-template-columns:repeat(2,1fr)!important}} @media(max-width:520px){.ss-tech-grid{grid-template-columns:1fr!important}}
     @media(max-width:1080px){#ss-shell{grid-template-columns:270px 1fr!important}#ss-right-panel{display:none!important}}
     @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
@@ -186,13 +193,13 @@ function ensureUI(){
     <div id="ss-market-view" style="display:none;max-width:1450px;margin:0 auto;padding:16px">
       <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:14px;padding:16px">
         <div style="display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap">
-          <div><div style="font-size:16px;font-weight:900">Market Overview</div><div style="font-size:10px;color:#7C8DB0;margin-top:3px">Indian and global market indices with live status and trading hours.</div></div>
+          <div><div style="font-size:16px;font-weight:900">Market Overview</div><div style="font-size:10px;color:#7C8DB0;margin-top:3px">Indian and global index levels, daily changes and local trading hours.</div></div>
           <div id="globalMarketUpdated" style="font-size:9px;color:#7C8DB0">--</div>
         </div>
         <div id="globalIndices" class="ss-global-grid" style="margin-top:14px"></div>
       </div>
       <div class="ss-card" style="margin-top:12px;background:#121a33;border:1px solid #1e2d5a;border-radius:14px;padding:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div><div style="font-size:14px;font-weight:900">Latest News</div><div id="newsContext" style="font-size:9px;color:#7C8DB0;margin-top:3px">General Indian and global market news</div></div><span style="font-size:9px;color:#8fb8ff">LIVE FEED</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:14px;font-weight:900;letter-spacing:.08em">NEWS</div><span style="font-size:9px;color:#8fb8ff">MARKET HEADLINES</span></div>
         <div id="newsBox" style="margin-top:10px;font-size:11px"></div>
       </div>
     </div>
@@ -239,8 +246,12 @@ function loadPortfolio(){loadPortfolioData();renderPortfolio();}
 function setupPortfolio(){document.getElementById("addPortfolio").onclick=()=>addToPortfolio(currentSymbol);}
 function renderNews(items){
   const box=document.getElementById("newsBox");
-  if(!items?.length){box.innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#7C8DB0'>No live news is available right now.</div>";return;}
-  box.innerHTML=items.map(n=>`<div style="padding:7px;background:#0e1429;border-radius:6px;margin:4px 0"><a href="${escapeHtml(safeExternalUrl(n.link))}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${escapeHtml(n.title || "Untitled news item")}</a><div style="font-size:9px;color:#7C8DB0;margin-top:3px">${escapeHtml(n.publisher || "Unknown publisher")}</div></div>`).join("");
+  if(!box)return;
+  if(!items?.length){box.innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#7C8DB0'>No market headlines are available right now.</div>";return;}
+  box.innerHTML=items.map(n=>{
+    const published=n.published instanceof Date&&!Number.isNaN(n.published.getTime())?" · "+n.published.toLocaleString("en-IN",{timeZone:"Asia/Kolkata",day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}):"";
+    return `<article class="ss-news-item"><a class="ss-news-title" href="${escapeHtml(safeExternalUrl(n.link))}" target="_blank" rel="noopener noreferrer" style="color:white;text-decoration:none">${escapeHtml(n.title || "Untitled news item")}</a><div class="ss-news-meta">${escapeHtml(n.publisher || "Market news")}${escapeHtml(published)}</div></article>`;
+  }).join("");
 }
 function emaSeries(values,period){
   if(!Array.isArray(values)||values.length<period)return [];
@@ -284,6 +295,7 @@ function technicalSnapshot(data){
 }
 async function loadStock(symbol){
   const requestId=++stockRequestId;
+  let quoteLoaded=false;
   currentSymbol=symbol;
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
@@ -295,6 +307,7 @@ async function loadStock(symbol){
   try{
     const data=await getFastQuote(symbol);
     if(requestId!==stockRequestId)return;
+    quoteLoaded=true;
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
@@ -334,15 +347,21 @@ async function loadStock(symbol){
     setText("analysisTrend",tech.trendScore>=4?"Strong bullish":tech.trendScore>=2?"Bullish":tech.trendScore<=-4?"Strong bearish":tech.trendScore<=-2?"Bearish":"Mixed");
     const marker=document.getElementById("analysisRsiMarker"); if(marker) marker.style.left=(tech.rsi==null?"50%":Math.max(0,Math.min(100,tech.rsi))+"%");
     const ai=getAISignal(tech);
-    setText("analysisScore",ai.score+"/100");setText("aiSignal",ai.t);setText("t_signal",ai.t);setText("aiDesc",ai.desc);setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.desc);
+    setText("analysisScore",ai.score+"/100");setText("aiSignal",ai.t);setText("aiDesc",ai.desc);setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.desc);
     const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=ai.score+"%";scoreFill.style.background=ai.c;}
-    document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
+    ["aiSignal","analysisSignal"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.color=ai.c;});
     
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
   }catch(error){
     if(requestId!==stockRequestId)return;
-    setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";
-    setText("aiSignal","UNAVAILABLE");setText("t_signal","UNAVAILABLE");setText("aiDesc","Live quote unavailable. Please retry shortly.");setText("analysisSignal","UNAVAILABLE");setText("analysisSignalDesc","Technical data is unavailable");
+    if(!quoteLoaded){
+      setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");
+      const change=document.getElementById("change");if(change){change.style.color="#ffcc00";change.style.background="rgba(255,204,0,.12)";}
+      setText("aiSignal","UNAVAILABLE");setText("aiDesc","Live quote unavailable. Please retry shortly.");
+    }else{
+      setText("aiSignal","UNAVAILABLE");setText("aiDesc","Technical analysis is temporarily unavailable.");
+    }
+    setText("analysisSignal","UNAVAILABLE");setText("analysisSignalDesc","Technical data is unavailable");
     setText("analysisScore","--");
     console.warn("[StockSense] stock data",error);
   }
@@ -392,8 +411,16 @@ async function loadGlobalMarket(){
     const change=document.querySelector('[data-change="'+CSS.escape(m[0])+'"]');
     const status=document.querySelector('[data-status="'+CSS.escape(m[0])+'"]');
     const clock=document.querySelector('[data-clock="'+CSS.escape(m[0])+'"]');
-    if(price)price.textContent=q?money(q.price):"--";
-    if(change){change.textContent=q?percent(q.changePct):"Data unavailable";change.style.color=q?(q.changePct>=0?"#00ff88":"#ff4444"):"#7C8DB0";}
+    if(price)price.textContent=q?formatIndexNumber(q.price):"--";
+    if(change){
+      const validChange=q&&Number.isFinite(q.change)&&Number.isFinite(q.changePct);
+      const up=validChange&&q.change>=0;
+      const absolute=validChange?formatIndexNumber(Math.abs(q.change)):null;
+      change.textContent=validChange?(up?"▲ ":"▼ ")+(up?"+":"−")+absolute+" pts · "+percent(q.changePct):"Data unavailable";
+      change.style.color=validChange?(up?"#00ff88":"#ff6b78"):"#7C8DB0";
+      change.style.background=validChange?(up?"rgba(0,255,136,.10)":"rgba(255,68,68,.12)"):"transparent";
+      change.title="Change from previous close in index points and percent";
+    }
     if(status){status.textContent=state.open?"OPEN":"CLOSED";status.style.color=state.open?"#00ff88":"#7C8DB0";}
     if(clock){const local=new Intl.DateTimeFormat("en-US",{timeZone:m[3],hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());clock.textContent=local+" • "+state.weekday;}
   }
@@ -463,3 +490,4 @@ async function init(){
   setInterval(updateMarketStatus,60_000);
 }
 init();
+
