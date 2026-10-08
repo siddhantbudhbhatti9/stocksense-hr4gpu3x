@@ -1,4 +1,4 @@
-import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getNews, getAISignal, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getNews, getAISignal, getMarketCap, formatCompactNumber, searchSymbols, calcRSI, calcSMA } from "./utils/api.js";
 import { nseSearchUniverse } from "./data/topStocks.js";
 
 const TICKERS=[...new Set(nseSearchUniverse.map(s=>s.display))];
@@ -90,8 +90,16 @@ function installDesignSystem(){
     .ss-signal-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:8px}
     .ss-signal-pill{font-size:16px;font-weight:900;letter-spacing:.02em}
     .ss-signal-score{font-size:10px;color:#7C8DB0;text-align:right}
+    .ss-signal-bands{font-size:8px;color:#7890b8;margin-top:6px;line-height:1.5}
     .ss-score-track{height:7px;background:#17213d;border-radius:999px;overflow:hidden;margin-top:8px}
     .ss-score-fill{height:100%;width:0%;border-radius:999px;transition:width .25s ease}
+    .ss-quote-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+    .ss-quote-stat{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border:1px solid rgba(91,121,180,.16);border-radius:7px;background:#0e1429;font-size:9px;color:#7890b8;font-variant-numeric:tabular-nums}
+    .ss-quote-stat b{color:#eef4ff;font-size:10px}
+    .ss-target-card{margin-top:10px;padding:9px 10px;border:1px solid rgba(79,140,255,.18);border-radius:9px;background:linear-gradient(100deg,rgba(35,72,145,.18),rgba(14,20,41,.85))}
+    .ss-target-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .ss-target-price{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums}
+    .ss-target-range,.ss-target-note{font-size:8px;color:#8da0c2;line-height:1.5;margin-top:4px}
     .ss-breakdown{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
     .ss-break{padding:8px;border:1px solid rgba(91,121,180,.14);border-radius:8px;background:#0e1429}
     .ss-break-label{font-size:8px;color:#7890b8;text-transform:uppercase;font-weight:800}
@@ -136,12 +144,14 @@ function ensureUI(){
       </div>
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
-          <div style="display:flex;justify-content:space-between"><div><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div style="display:flex;gap:12px;margin-top:8px;font-size:10px;color:#7C8DB0"><span>H <b id="dayHigh" style="color:white">--</b></span><span>L <b id="dayLow" style="color:white">--</b></span><span>Vol <b id="dayVol" style="color:white">--</b></span><span>52W <b id="w52" style="color:white">--</b></span></div></div><div style="text-align:right"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ My Portfolio</button></div></div>
+          <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap"><div style="flex:1;min-width:260px"><div id="stockName" style="font-size:11px;color:#7fb2ff;font-weight:800;letter-spacing:.04em">SBIN.NS • NSE</div><div style="display:flex;align-items:baseline;gap:12px;margin-top:4px"><h1 id="stockPrice" style="font-size:36px;margin:0;font-weight:850;letter-spacing:-.03em">₹--</h1><div id="change" style="padding:4px 10px;border-radius:20px;font-weight:700;font-size:12px">--</div></div><div class="ss-quote-stats"><span class="ss-quote-stat">Open <b id="dayOpen">--</b></span><span class="ss-quote-stat">Prev close <b id="prevClose">--</b></span><span class="ss-quote-stat">High <b id="dayHigh">--</b></span><span class="ss-quote-stat">Low <b id="dayLow">--</b></span><span class="ss-quote-stat">Volume <b id="dayVol">--</b></span><span class="ss-quote-stat">52W <b id="w52">--</b></span></div></div><div style="text-align:right;min-width:125px"><div style="font-size:9px;color:#7C8DB0">AI SIGNAL</div><div id="aiSignal" style="margin-top:6px;padding:6px 14px;border-radius:20px;font-weight:800;font-size:12px;border:1px solid #1e2d5a;background:#1e2d5a">--</div><div id="aiDesc" style="font-size:9px;color:#7C8DB0;margin-top:4px">--</div><button id="addPortfolio" style="margin-top:10px;padding:6px 14px;background:#00d4ff;color:#070d2b;border:none;border-radius:20px;font-weight:700;font-size:11px">+ My Portfolio</button></div></div>
           <div class="ss-analysis">
             <div class="ss-analysis-card">
               <div class="ss-analysis-title">Signal Analysis</div>
               <div class="ss-signal-hero"><div><div id="analysisSignal" class="ss-signal-pill">--</div><div id="analysisSignalDesc" style="font-size:9px;color:#7C8DB0;margin-top:3px">Awaiting technical data</div></div><div class="ss-signal-score"><div>TECHNICAL SCORE</div><b id="analysisScore">--</b></div></div>
               <div class="ss-score-track"><div id="analysisScoreFill" class="ss-score-fill"></div></div>
+              <div class="ss-signal-bands">Strong Buy 80–100 · Buy 62–79 · Hold 39–61 · Sell 21–38 · Strong Sell 0–20</div>
+              <div class="ss-target-card"><div class="ss-target-top"><span class="ss-analysis-title">20-SESSION MODEL TARGET</span><b id="priceTarget" class="ss-target-price">--</b><span id="targetMove" style="font-size:9px;font-weight:800;color:#9fb0cf">--</span></div><div id="targetRange" class="ss-target-range">Estimated range: --</div><div class="ss-target-note">Trend projection from recent returns and signal score; range reflects ATR-based volatility. An estimate, not a guaranteed price.</div></div>
               <div class="ss-breakdown">
                 <div class="ss-break"><div class="ss-break-label">RSI</div><div id="analysisRsiState" class="ss-break-value">--</div></div>
                 <div class="ss-break"><div class="ss-break-label">Momentum</div><div id="analysisMomentum" class="ss-break-value">--</div></div>
@@ -181,7 +191,7 @@ function ensureUI(){
               <div class="ss-trend-row"><span class="ss-trend-name">3M Return</span><b id="return3m" class="ss-trend-value">--</b></div>
               <div class="ss-trend-row"><span class="ss-trend-name">6M Return</span><b id="return6m" class="ss-trend-value">--</b></div>
               <div class="ss-trend-row"><span class="ss-trend-name">1Y Return</span><b id="return1y" class="ss-trend-value">--</b></div>
-              <div class="ss-trend-row"><span class="ss-trend-name">52W Range</span><b id="range52Value" class="ss-trend-value">--</b></div>
+              <div class="ss-trend-row"><span class="ss-trend-name">Market Cap</span><b id="marketCapValue" class="ss-trend-value">--</b></div>
               <div class="ss-trend-row"><span class="ss-trend-name">Trend Strength</span><b id="trendStrengthValue" class="ss-trend-value">--</b></div>
             </div>
           </div>
@@ -203,7 +213,7 @@ function ensureUI(){
         <div id="newsBox" style="margin-top:10px;font-size:11px"></div>
       </div>
     </div>
-    <div style="background:#1a1400;border-top:1px solid #3d3000;padding:12px 16px;text-align:center"><div style="font-size:11px;color:#ffcc66;line-height:16px;max-width:900px;margin:0 auto"><b>⚠️ Disclaimer:</b> This app is a hobby project, made for educational purpose only. Do your own market research before investing or trading. We are not SEBI registered. Market data may be delayed.</div></div>
+    <div style="background:#1a1400;border-top:1px solid #3d3000;padding:12px 16px;text-align:center"><div style="font-size:11px;color:#ffcc66;line-height:16px;max-width:900px;margin:0 auto"><b>⚠️ Disclaimer:</b> This app is a hobby project, made for educational purpose only. Buy/sell signals and 20-session targets are rule-based estimates from historical indicators; they are not guarantees or personalized investment advice. Do your own market research before investing or trading. We are not SEBI registered. Market data may be delayed.</div></div>
   </div>`;
 }
 
@@ -289,9 +299,31 @@ function technicalSnapshot(data){
   const support=recentLows.length?Math.min(...recentLows):null,resistance=recentHighs.length?Math.max(...recentHighs):null;
   const rsi=calcRSI(c),sma20=calcSMA(c,20),sma50=calcSMA(c,50),sma200=calcSMA(c,200);
   const trendScore=(price>sma20?1:-1)+(sma20>sma50?1:-1)+(sma50>sma200?1:-1)+(ema20>ema50?1:-1)+(macd>macdSignal?1:-1);
-  return {rsi,sma20,sma50,sma200,ema20,ema50,macd,macdSignal,stoch,atr,bbPos,volumeRatio,support,resistance,
+  return {price,rsi,sma20,sma50,sma200,ema20,ema50,macd,macdSignal,stoch,atr,bbPos,volumeRatio,support,resistance,
     return1m:pctFromPrice(c,21,price),return3m:pctFromPrice(c,63,price),return6m:pctFromPrice(c,126,price),return1y:pctFromPrice(c,252,price),
     range52Low:data.low52,range52High:data.high52,trendScore};
+}
+function clamp(value,min,max){return Math.max(min,Math.min(max,value));}
+function nearTermTarget(price,tech,score){
+  if(!Number.isFinite(price)||price<=0||!Number.isFinite(tech?.atr)||tech.atr<=0)return null;
+  const inputs=[
+    [Number.isFinite(tech.return1m)?clamp(tech.return1m,-15,15):null,.5],
+    [Number.isFinite(tech.return3m)?clamp(tech.return3m/3,-10,10):null,.3],
+    [Number.isFinite(score)?clamp((score-50)*.08,-4,4):null,.2]
+  ].filter(([value])=>value!=null);
+  if(!inputs.length)return null;
+  const weight=inputs.reduce((sum,[,w])=>sum+w,0);
+  const expectedReturn=clamp(inputs.reduce((sum,[value,w])=>sum+value*w,0)/weight,-12,12);
+  const target=price*(1+expectedReturn/100);
+  const rangePct=clamp((tech.atr/price)*Math.sqrt(20)*100,2,20);
+  return {target,low:Math.max(0,target*(1-rangePct/100)),high:target*(1+rangePct/100),expectedReturn};
+}
+function loadMarketCap(symbol,requestId){
+  setText("marketCapValue","Loading…");
+  getMarketCap(symbol).then(({marketCap})=>{
+    if(requestId!==stockRequestId)return;
+    setText("marketCapValue",Number.isFinite(marketCap)?"₹"+formatCompactNumber(marketCap):"Unavailable");
+  }).catch(()=>{if(requestId===stockRequestId)setText("marketCapValue","Unavailable");});
 }
 async function loadStock(symbol){
   const requestId=++stockRequestId;
@@ -299,7 +331,8 @@ async function loadStock(symbol){
   currentSymbol=symbol;
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
-  ["dayHigh","dayLow","dayVol","w52","rsiValue","smaStatus","smaLongStatus","priceTrend","sma20","sma50","sma200","rsiPosition","ema20Value","ema50Value","macdValue","macdSignalValue","stochValue","atrValue","bbValue","volumeTrend","supportValue","resistanceValue","return1m","return3m","return6m","return1y","range52Value","trendStrengthValue","analysisScore","analysisRsiState","analysisMomentum","analysisTrend"].forEach(id=>setText(id,"--"));
+  ["dayOpen","prevClose","dayHigh","dayLow","dayVol","w52","marketCapValue","rsiValue","smaStatus","smaLongStatus","priceTrend","sma20","sma50","sma200","rsiPosition","ema20Value","ema50Value","macdValue","macdSignalValue","stochValue","atrValue","bbValue","volumeTrend","supportValue","resistanceValue","return1m","return3m","return6m","return1y","trendStrengthValue","analysisScore","analysisRsiState","analysisMomentum","analysisTrend","priceTarget","targetMove"].forEach(id=>setText(id,"--"));
+  setText("targetRange","Estimated range: --");
   ["aiSignal","analysisSignal"].forEach(id=>setText(id,"Loading…"));
   setText("aiDesc","Loading market data…");setText("analysisSignalDesc","Loading technical data…");
   const scoreFill=document.getElementById("analysisScoreFill");if(scoreFill)scoreFill.style.width="0%";
@@ -311,7 +344,8 @@ async function loadStock(symbol){
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
     const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
-    setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
+    setText("dayOpen",money(data.open));setText("prevClose",money(data.prev));setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
+    loadMarketCap(symbol,requestId);
     setText("rsiValue","Loading…");setText("sma20","Loading…");setText("sma50","Loading…");setText("sma200","Loading…");
     let technical=null;
     if(Array.isArray(data.closes)&&data.closes.length>=20){
@@ -335,7 +369,6 @@ async function loadStock(symbol){
     setText("volumeTrend",Number.isFinite(tech.volumeRatio)?tech.volumeRatio.toFixed(2)+"× avg":"--");
     setText("supportValue",money(tech.support));setText("resistanceValue",money(tech.resistance));
     setText("return1m",percent(tech.return1m));setText("return3m",percent(tech.return3m));setText("return6m",percent(tech.return6m));setText("return1y",percent(tech.return1y));
-    setText("range52Value",money(tech.range52Low)+" / "+money(tech.range52High));
     setText("trendStrengthValue",tech.trendScore>=4?"Strong bullish":tech.trendScore>=2?"Bullish":tech.trendScore<=-4?"Strong bearish":tech.trendScore<=-2?"Bearish":"Mixed");
     const rsiState=tech.rsi==null?"Unavailable":tech.rsi<30?"Oversold":tech.rsi<45?"Weak / recovering":tech.rsi<=70?"Neutral / healthy":tech.rsi<=80?"Overbought":"Highly overbought";
     const momentum=tech.rsi==null?"Unavailable":tech.rsi<30?"Strong downside reversal zone":tech.rsi<45?"Bearish momentum":tech.rsi>70?"Overheated momentum":"Balanced momentum";
@@ -350,6 +383,11 @@ async function loadStock(symbol){
     setText("analysisScore",ai.score+"/100");setText("aiSignal",ai.t);setText("aiDesc",ai.desc);setText("analysisSignal",ai.t);setText("analysisSignalDesc",ai.desc);
     const scoreFill=document.getElementById("analysisScoreFill"); if(scoreFill){scoreFill.style.width=ai.score+"%";scoreFill.style.background=ai.c;}
     ["aiSignal","analysisSignal"].forEach(id=>{const el=document.getElementById(id);if(el)el.style.color=ai.c;});
+    const target=nearTermTarget(data.price,tech,ai.score);
+    setText("priceTarget",target?money(target.target):"Unavailable");
+    setText("targetMove",target?percent(target.expectedReturn):"--");
+    setText("targetRange",target?"Estimated range: "+money(target.low)+" – "+money(target.high)+" over 20 sessions":"Estimated range unavailable — historical volatility data is missing");
+    const move=document.getElementById("targetMove");if(move&&target)move.style.color=target.expectedReturn>=0?"#22c55e":"#f87171";
     
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
   }catch(error){

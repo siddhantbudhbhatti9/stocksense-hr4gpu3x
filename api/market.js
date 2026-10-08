@@ -71,6 +71,7 @@ function quoteFromBars(symbol, bars, provider) {
     prev: previous.close,
     change: last.close - previous.close,
     changePct: ((last.close - previous.close) / previous.close) * 100,
+    open: Number.isFinite(last.open) ? last.open : null,
     closes,
     timestamps: bars.map((bar) => Math.floor(Date.parse(`${bar.date}T00:00:00Z`) / 1000)),
     opens: bars.map((bar) => bar.open),
@@ -144,6 +145,7 @@ async function yahoo(symbol, range) {
         prev,
         change: price - prev,
         changePct: ((price - prev) / prev) * 100,
+        open: Number.isFinite(meta.regularMarketOpen) ? meta.regularMarketOpen : latest.open,
         closes,
         timestamps: bars.map((bar) => bar.timestamp),
         opens: bars.map((bar) => bar.open),
@@ -238,3 +240,4 @@ export default async function handler(req, res) {
   }
   return res.status(200).json({ quotes, unavailableSymbols });
 }
+

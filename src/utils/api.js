@@ -11,6 +11,8 @@ const batchQuoteInFlight=new Map();
 const fundCache=new Map();
 const fundFastCache=new Map();
 const newsCache=new Map();
+const marketCapCache=new Map();
+const marketCapInFlight=new Map();
 
 export async function getFastQuote(symbol){
   const key=String(symbol).toUpperCase();
@@ -28,7 +30,7 @@ export async function getFastQuote(symbol){
       change:q.change,changePct:q.changePct,
       closes:q.closes||[],timestamps:q.timestamps||[],
       opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[],
-      high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52
+      open:q.open,high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52
     };
     batchQuoteCache.set("fast:"+key,{time:Date.now(),data});
     return data;
@@ -490,9 +492,20 @@ export async function searchSymbols(query){
 }
 
 export async function getMarketCap(symbol){
-  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(symbol));
-  const q=json?.quoteResponse?.result?.[0]||{};
-  return {marketCap:Number.isFinite(q.marketCap)?q.marketCap:null,cap:classifyMarketCap(q.marketCap)};
+  const key=String(symbol).toUpperCase();
+  const cached=marketCapCache.get(key);
+  if(cached&&Date.now()-cached.time<(cached.data.marketCap==null?30_000:5*60_000))return cached.data;
+  if(marketCapInFlight.has(key))return marketCapInFlight.get(key);
+  const promise=(async()=>{
+    const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(key));
+    const q=json?.quoteResponse?.result?.[0]||{};
+    const marketCap=Number.isFinite(q.marketCap)?q.marketCap:null;
+    const data={marketCap,cap:classifyMarketCap(marketCap)};
+    marketCapCache.set(key,{time:Date.now(),data});
+    return data;
+  })();
+  marketCapInFlight.set(key,promise);
+  try{return await promise;}finally{marketCapInFlight.delete(key);}
 }
 
 export async function fetchLivePrice(symbol){
