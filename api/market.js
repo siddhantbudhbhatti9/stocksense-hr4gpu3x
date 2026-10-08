@@ -25,22 +25,24 @@ function normalizeBars(raw,symbol){
   rows.sort((a,b)=>a.date.localeCompare(b.date));
   return rows;
 }
-async function primary(symbol,range){
+async function primaryBatch(symbols,range){
   const end=new Date(),start=new Date(end.getTime()-daysForRange(range)*86400000);
-  const url=PRIMARY+"?tickers="+encodeURIComponent(symbol)+"&start_date="+isoDate(start)+"&end_date="+isoDate(end)+"&format=json";
+  const url=PRIMARY+"?tickers="+encodeURIComponent(symbols.join(","))+"&start_date="+isoDate(start)+"&end_date="+isoDate(end)+"&format=json";
   const json=await getJson(url);
-  const bars=normalizeBars(json?.[symbol],symbol);
-  if(bars.length<2) throw new Error("Primary provider returned insufficient history");
-  const last=bars[bars.length-1],prev=bars[bars.length-2];
-  const closes=bars.map(x=>x.close);
-  return {
-    symbol,price:last.close,prev:prev.close,change:last.close-prev.close,
-    changePct:(last.close-prev.close)/prev.close*100,
-    closes,timestamps:bars.map(x=>Math.floor(Date.parse(x.date+"T00:00:00Z")/1000)),
-    opens:bars.map(x=>x.open),highs:bars.map(x=>x.high),lows:bars.map(x=>x.low),volumes:bars.map(x=>x.volume),
-    high:last.high,low:last.low,vol:last.volume,
-    high52:Math.max(...closes),low52:Math.min(...closes),provider:"yfin-h"
-  };
+  const result=new Map();
+  for(const symbol of symbols){
+    const bars=normalizeBars(json?.[symbol],symbol);
+    if(bars.length<2)continue;
+    const last=bars[bars.length-1],prev=bars[bars.length-2],closes=bars.map(x=>x.close);
+    result.set(symbol,{
+      symbol,price:last.close,prev:prev.close,change:last.close-prev.close,
+      changePct:(last.close-prev.close)/prev.close*100,
+      closes,timestamps:bars.map(x=>Math.floor(Date.parse(x.date+"T00:00:00Z")/1000)),
+      opens:bars.map(x=>x.open),highs:bars.map(x=>x.high),lows:bars.map(x=>x.low),volumes:bars.map(x=>x.volume),
+      high:last.high,low:last.low,vol:last.volume,high52:Math.max(...closes),low52:Math.min(...closes),provider:"yfin-h"
+    });
+  }
+  return result;
 }
 async function yahoo(symbol,range){
   let lastError=null;
@@ -66,34 +68,38 @@ async function yahoo(symbol,range){
   }
   throw lastError||new Error("No market provider available");
 }
-async function load(symbol,range){
+async function loadFallback(symbol,range){
   const key=symbol+"|"+range;
   const cached=cache.get(key);
   if(cached&&Date.now()-cached.time<CACHE_MS)return cached.data;
   if(inFlight.has(key))return inFlight.get(key);
   const promise=(async()=>{
-    try{return await primary(symbol,range);}
-    catch(primaryError){
-      try{return await yahoo(symbol,range);}
-      catch(yahooError){throw new Error("Market providers unavailable");}
-    }
+    try{return await yahoo(symbol,range);}
+    catch{throw new Error("Market providers unavailable");}
   })();
   inFlight.set(key,promise);
-  try{
-    const data=await promise;cache.set(key,{time:Date.now(),data});return data;
-  }finally{inFlight.delete(key);}
+  try{const data=await promise;cache.set(key,{time:Date.now(),data});return data;}
+  finally{inFlight.delete(key);}
 }
+
 export default async function handler(req,res){
   const raw=String(req.query?.symbols||"");
   const range=String(req.query?.range||"5d");
   if(!raw)return res.status(400).json({error:"Missing symbols"});
   if(!["5d","1mo","3mo","6mo","1y"].includes(range))return res.status(400).json({error:"Invalid range"});
-  const symbols=[...new Set(raw.split(",").map(s=>s.trim().toUpperCase()).filter(s=>/^[A-Z0-9^=_-]+\.(NS|BO)$/.test(s)||/^[A-Z0-9^=_-]+$/.test(s)))].slice(0,25);
+  const symbols=[...new Set(raw.split(",").map(s=>s.trim().toUpperCase()).filter(s=>/^[A-Z0-9^=_-]+\\.(NS|BO)$/.test(s)||/^[A-Z0-9^=_-]+$/.test(s)))].slice(0,25);
   if(!symbols.length)return res.status(400).json({error:"No valid symbols"});
+
   const quotes=[];
-  let cursor=0;
-  const worker=async()=>{while(cursor<symbols.length){const symbol=symbols[cursor++];try{quotes.push(await load(symbol,range));}catch{}await sleep(50);}};
-  await Promise.all([worker(),worker()]);
+  let primaryMap=new Map();
+  try{primaryMap=await primaryBatch(symbols,range);}catch{}
+
+  for(const symbol of symbols){
+    const q=primaryMap.get(symbol);
+    if(q){quotes.push(q);continue;}
+    try{quotes.push(await loadFallback(symbol,range));}catch{}
+  }
+
   res.setHeader("Content-Type","application/json");
   res.setHeader("Cache-Control","s-maxage=30, stale-while-revalidate=120");
   return res.status(200).json({quotes});
