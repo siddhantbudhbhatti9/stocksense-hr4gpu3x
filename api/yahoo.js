@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     const candidate=new URL(target.toString());
     candidate.hostname=host;
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),8000);
+    const timer=setTimeout(()=>controller.abort(),2500);
     try{
       const response=await fetch(candidate.toString(),{
         headers:browserHeaders(),

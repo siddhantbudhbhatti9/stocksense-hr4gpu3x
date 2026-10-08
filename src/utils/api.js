@@ -1,15 +1,11 @@
-const PROXIES = [
-  "/api/yahoo?url=",
-  "https://api.allorigins.win/raw?url=",
-  "https://corsproxy.io/?url=",
-  "https://api.codetabs.com/v1/proxy?quest="
-];
+const YAHOO_PROXY = "/api/yahoo?url=";
 const YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/";
 const YAHOO_QUOTE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
 const YAHOO_SEARCH = "https://query1.finance.yahoo.com/v1/finance/search?q=";
 
 const quoteCache=new Map();
 const quoteInFlight=new Map();
+const fastQuoteInFlight=new Map();
 const batchQuoteCache=new Map();
 const batchQuoteInFlight=new Map();
 const fundCache=new Map();
@@ -20,27 +16,32 @@ export async function getFastQuote(symbol){
   const key=String(symbol).toUpperCase();
   const cached=batchQuoteCache.get("fast:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y",{cache:"no-store"});
-  if(!response.ok) throw new Error("Market data endpoint returned "+response.status);
-  const json=await response.json();
-  const q=json?.quotes?.[0];
-  if(!q) throw new Error("Live quote unavailable for "+symbol);
-  const data={
-    symbol:key,price:q.price,prev:q.prev,
-    change:q.change,changePct:q.changePct,
-    closes:q.closes||[],timestamps:q.timestamps||[],
-    opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[],
-    high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52
-  };
-  batchQuoteCache.set("fast:"+key,{time:Date.now(),data});
-  return data;
+  if(fastQuoteInFlight.has(key)) return fastQuoteInFlight.get(key);
+  const promise=(async()=>{
+    const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y");
+    if(!response.ok) throw new Error("Market data endpoint returned "+response.status);
+    const json=await response.json();
+    const q=json?.quotes?.find(item=>String(item?.symbol||"").toUpperCase()===key);
+    if(!q) throw new Error("Live quote unavailable for "+symbol);
+    const data={
+      symbol:key,price:q.price,prev:q.prev,
+      change:q.change,changePct:q.changePct,
+      closes:q.closes||[],timestamps:q.timestamps||[],
+      opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[],
+      high:q.high,low:q.low,vol:q.vol,high52:q.high52,low52:q.low52
+    };
+    batchQuoteCache.set("fast:"+key,{time:Date.now(),data});
+    return data;
+  })();
+  fastQuoteInFlight.set(key,promise);
+  try{return await promise;}finally{fastQuoteInFlight.delete(key);}
 }
 
 export async function getTechnicalData(symbol){
   const key=String(symbol).toUpperCase();
   const cached=quoteCache.get("technical:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y",{cache:"no-store"});
+  const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y");
   if(!response.ok) throw new Error("Market history endpoint returned "+response.status);
   const json=await response.json();
   const q=json?.quotes?.[0];
@@ -53,16 +54,16 @@ const CACHE_MS=30000;
 const BATCH_CACHE_MS=30000;
 
 async function fetchYahoo(url){
-  for(const proxy of PROXIES){
-    try{
-      const response=await fetch(proxy+encodeURIComponent(url),{cache:"no-store"});
-      if(!response.ok) continue;
-      const text=await response.text();
-      const parsed=JSON.parse(text);
-      return parsed?.contents ? JSON.parse(parsed.contents) : parsed;
-    }catch{}
-  }
-  return null;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),6500);
+  try{
+    const response=await fetch(YAHOO_PROXY+encodeURIComponent(url),{signal:controller.signal});
+    if(!response.ok)return null;
+    const text=await response.text();
+    const parsed=JSON.parse(text);
+    return parsed?.contents ? JSON.parse(parsed.contents) : parsed;
+  }catch{return null;}
+  finally{clearTimeout(timer);}
 }
 
 export async function getQuote(symbol){
@@ -128,7 +129,7 @@ export async function getQuotesBatch(symbols){
   const promise=(async()=>{
     const result=new Map();
     try{
-      const response=await fetch("/api/market?symbols="+encodeURIComponent(unique.join(","))+"&range=5d",{cache:"no-store"});
+      const response=await fetch("/api/market?symbols="+encodeURIComponent(unique.join(","))+"&range=5d");
       if(response.ok){
         const json=await response.json();
         for(const q of (json?.quotes||[])){
@@ -137,20 +138,9 @@ export async function getQuotesBatch(symbols){
       }
     }catch{}
 
-    // If the batch endpoint is temporarily unavailable, keep the UI useful by
-    // retrying only the missing symbols with a small client-side concurrency cap.
-    if(result.size<unique.length){
-      const missing=unique.filter(s=>!result.has(s));
-      let cursor=0;
-      const worker=async()=>{
-        while(cursor<missing.length){
-          const symbol=missing[cursor++];
-          try{ result.set(symbol,await getFastQuote(symbol)); }catch{}
-        }
-      };
-      await Promise.all([worker(),worker(),worker()]);
-    }
-    batchQuoteCache.set(key,{time:Date.now(),data:result});
+    // The API handles provider fallbacks in one bounded batch. Retrying each
+    // missing symbol here multiplied load when the batch endpoint was down.
+    if(result.size) batchQuoteCache.set(key,{time:Date.now(),data:result});
     return result;
   })();
 
@@ -483,12 +473,11 @@ export async function getMarketOverview(){
     ["^CNXPSUBANK","NIFTY PSU Bank"],["^CNXENERGY","NIFTY Energy"],["^CNXINFRA","NIFTY Infrastructure"],["^CNXMEDIA","NIFTY Media"],
     ["^CNXCONSUMER","NIFTY India Consumption"],["^CNXDIVOPP","NIFTY Dividend Opportunities 50"],["^BSESN","BSE SENSEX"]
   ];
-  const json=await fetchYahoo(YAHOO_QUOTE+encodeURIComponent(indexes.map(x=>x[0]).join(",")));
-  const bySymbol=new Map((json?.quoteResponse?.result||[]).map(q=>[String(q.symbol||"").toUpperCase(),q]));
+  const quotes=await getQuotesBatch(indexes.map(x=>x[0]));
   return indexes.map(([symbol,name])=>{
-    const q=bySymbol.get(symbol.toUpperCase());
-    const price=Number.isFinite(q?.regularMarketPrice)?q.regularMarketPrice:null;
-    const prev=Number.isFinite(q?.regularMarketPreviousClose)?q.regularMarketPreviousClose:null;
+    const q=quotes.get(symbol.toUpperCase());
+    const price=Number.isFinite(q?.price)?q.price:null;
+    const prev=Number.isFinite(q?.prev)?q.prev:null;
     return {n:name,q:price!=null?{price,prev}:null,pct:Number.isFinite(price)&&Number.isFinite(prev)&&prev!==0?(price-prev)/prev*100:null};
   });
 }

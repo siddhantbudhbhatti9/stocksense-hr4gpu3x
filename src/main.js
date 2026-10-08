@@ -7,6 +7,13 @@ const PORTFOLIO_KEY="ss_portfolio";
 const PORTFOLIO_MAX=30;
 let portfolio=[];
 let currentSymbol="SBIN.NS";
+let stockRequestId=0;
+let globalMarketLoadedAt=0;
+let globalMarketPromise=null;
+let generalNewsLoadedAt=0;
+let generalNewsPromise=null;
+const GLOBAL_MARKET_CACHE_MS=30_000;
+const GENERAL_NEWS_CACHE_MS=5*60_000;
 function loadPortfolioData(){
   try{
     const saved=JSON.parse(localStorage.getItem(PORTFOLIO_KEY)||"[]");
@@ -280,6 +287,11 @@ async function loadStock(symbol){
   currentSymbol=symbol;
   setText("stockName",symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • loading");
   setText("stockPrice","₹--");setText("change","Loading live data...");
+  ["dayHigh","dayLow","dayVol","w52","rsiValue","smaStatus","smaLongStatus","priceTrend","sma20","sma50","sma200","rsiPosition","ema20Value","ema50Value","macdValue","macdSignalValue","stochValue","atrValue","bbValue","volumeTrend","supportValue","resistanceValue","return1m","return3m","return6m","return1y","range52Value","trendStrengthValue","analysisScore","analysisRsiState","analysisMomentum","analysisTrend"].forEach(id=>setText(id,"--"));
+  ["aiSignal","analysisSignal"].forEach(id=>setText(id,"Loading…"));
+  setText("aiDesc","Loading market data…");setText("analysisSignalDesc","Loading technical data…");
+  const scoreFill=document.getElementById("analysisScoreFill");if(scoreFill)scoreFill.style.width="0%";
+  const marker=document.getElementById("analysisRsiMarker");if(marker)marker.style.left="50%";
   try{
     const data=await getFastQuote(symbol);
     if(requestId!==stockRequestId)return;
@@ -327,9 +339,12 @@ async function loadStock(symbol){
     document.getElementById("aiSignal").style.color=ai.c;document.getElementById("t_signal").style.color=ai.c;document.getElementById("analysisSignal").style.color=ai.c;
     
     setText("t_rsi",Number.isFinite(data.rsi)?data.rsi.toFixed(1):"--");setText("t_sma20",money(data.sma20));setText("t_sma50",money(data.sma50));setText("t_sma200",money(data.sma200));
-    getNews(symbol).then(news=>{if(requestId===stockRequestId)renderNews(news);}).catch(()=>renderNews([]));
   }catch(error){
-    setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";setText("aiSignal","UNAVAILABLE");setText("aiDesc","No live quote received");document.getElementById("newsBox").innerHTML="<div style='padding:8px;background:#0e1429;border-radius:6px;color:#ffcc00'>Live market data is unavailable right now. No estimated or fabricated value is shown.</div>";console.warn("[StockSense]",error);
+    if(requestId!==stockRequestId)return;
+    setText("stockPrice","₹--");setText("change","DATA UNAVAILABLE");document.getElementById("change").style.color="#ffcc00";document.getElementById("change").style.background="rgba(255,204,0,.12)";
+    setText("aiSignal","UNAVAILABLE");setText("t_signal","UNAVAILABLE");setText("aiDesc","Live quote unavailable. Please retry shortly.");setText("analysisSignal","UNAVAILABLE");setText("analysisSignalDesc","Technical data is unavailable");
+    setText("analysisScore","--");
+    console.warn("[StockSense] stock data",error);
   }
 }
 function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
@@ -341,8 +356,21 @@ function marketState(timeZone,openHour,openMinute,closeHour,closeMinute){
   const weekday=day!=="Sat"&&day!=="Sun";
   return {open:weekday&&mins>=open&&mins<close,time:get("hour")+":"+get("minute"),weekday:day};
 }
-async function loadGeneralMarketNews(){ try{ const items=await getNews("MARKET"); renderNews(items); }catch{ renderNews([]); } }
+async function loadGeneralMarketNews(){
+  if(generalNewsPromise)return generalNewsPromise;
+  if(generalNewsLoadedAt&&Date.now()-generalNewsLoadedAt<GENERAL_NEWS_CACHE_MS)return;
+  generalNewsPromise=(async()=>{
+    const box=document.getElementById("newsBox");
+    if(box&&!box.textContent.trim())box.textContent="Loading latest news…";
+    try{renderNews(await getNews("MARKET"));generalNewsLoadedAt=Date.now();}
+    catch{renderNews([]);generalNewsLoadedAt=Date.now();}
+  })().finally(()=>{generalNewsPromise=null;});
+  return generalNewsPromise;
+}
 async function loadGlobalMarket(){
+  if(globalMarketPromise)return globalMarketPromise;
+  if(globalMarketLoadedAt&&Date.now()-globalMarketLoadedAt<GLOBAL_MARKET_CACHE_MS)return;
+  globalMarketPromise=(async()=>{
   const markets=[
     ["^NSEI","NIFTY 50","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
     ["^BSESN","SENSEX","India","Asia/Kolkata","09:15–15:30 IST",9,15,15,30],
@@ -370,6 +398,9 @@ async function loadGlobalMarket(){
     if(clock){const local=new Intl.DateTimeFormat("en-US",{timeZone:m[3],hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());clock.textContent=local+" • "+state.weekday;}
   }
   setText("globalMarketUpdated","Updated "+new Date().toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata"})+" IST");
+  globalMarketLoadedAt=Date.now();
+  })().finally(()=>{globalMarketPromise=null;});
+  return globalMarketPromise;
 }
 async function loadIndices(){
   const syms=[
@@ -424,13 +455,11 @@ async function init(){
   setupPortfolio();
   loadPortfolio();
   loadStock(currentSymbol);
-  loadGlobalMarket();
-  loadGeneralMarketNews();
   const setTab=(tab)=>{const dash=document.getElementById("ss-dashboard-view"),market=document.getElementById("ss-market-view"),d=document.getElementById("tabDashboard"),m=document.getElementById("tabMarket");const isMarket=tab==="market";dash.style.display=isMarket?"none":"";market.style.display=isMarket?"":"none";d.style.background=isMarket?"#121a33":"#00d4ff";d.style.color=isMarket?"#9fb0cf":"#06101f";m.style.background=isMarket?"#00d4ff":"#121a33";m.style.color=isMarket?"#06101f":"#9fb0cf";if(isMarket){loadGlobalMarket();loadGeneralMarketNews();}};
   document.getElementById("tabDashboard").onclick=()=>setTab("dashboard");
   document.getElementById("tabMarket").onclick=()=>setTab("market");
-  const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN"));};
+  const updateMarketStatus=()=>{const h=new Date().getHours(),m=new Date().getMinutes();setText("marketStatus",(h>9&&h<15||(h===9&&m>=15)||(h===15&&m<30)?"🟢 OPEN ":"🔴 CLOSED ")+new Date().toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"}));};
   updateMarketStatus();
-  setInterval(updateMarketStatus,1000);
+  setInterval(updateMarketStatus,60_000);
 }
 init();
