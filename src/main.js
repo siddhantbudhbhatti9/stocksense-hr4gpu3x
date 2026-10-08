@@ -343,7 +343,7 @@ async function loadStock(symbol){
     quoteLoaded=true;
     document.getElementById("stockName").textContent=symbol+" • "+(symbol.endsWith(".BO")?"BSE":"NSE")+" • "+new Date().toLocaleTimeString("en-IN");
     setText("stockPrice",money(data.price));
-    const ch=document.getElementById("change");ch.textContent=percent(data.change)+" ("+percent(data.changePct)+")";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
+    const ch=document.getElementById("change");const absoluteChange=Number.isFinite(data.change)?(data.change>=0?"+":"−")+money(Math.abs(data.change)):"--";ch.textContent=absoluteChange+" ("+percent(data.changePct)+")";ch.title="Change from previous close";ch.style.background=data.change>=0?"rgba(0,255,136,.15)":"rgba(255,68,68,.15)";ch.style.color=data.change>=0?"#00ff88":"#ff4444";
     setText("dayOpen",money(data.open));setText("prevClose",money(data.prev));setText("dayHigh",money(data.high));setText("dayLow",money(data.low));setText("dayVol",Number.isFinite(data.vol)?(data.vol/1e6).toFixed(2)+"M":"--");setText("w52",money(data.low52)+" / "+money(data.high52));
     loadMarketCap(symbol,requestId);
     setText("rsiValue","Loading…");setText("sma20","Loading…");setText("sma50","Loading…");setText("sma200","Loading…");
