@@ -500,11 +500,3 @@ export async function fetchLivePrice(symbol){
   return {price:"₹"+q.price.toFixed(2),changePct:((q.price-q.prev)/q.prev*100).toFixed(2)};
 }
 
-export async function getFinnhubCandles(){
-  return null;
-}
-
-export function generateMockCandles(){
-  return [];
-}
-
