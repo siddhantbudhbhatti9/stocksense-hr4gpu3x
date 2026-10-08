@@ -40,22 +40,14 @@ export async function getTechnicalData(symbol){
   const key=String(symbol).toUpperCase();
   const cached=quoteCache.get("technical:"+key);
   if(cached && Date.now()-cached.time<CACHE_MS) return cached.data;
-  // Some Yahoo responses are shorter than a full year. Try progressively
-  // smaller daily windows, but never fabricate values or accept an unusable set.
-  for(const range of ["1y","6mo","3mo","1mo"]){
-    const url=YAHOO_CHART+encodeURIComponent(key)+"?interval=1d&range="+range+"&events=history";
-    try{
-      const json=await fetchYahoo(url);
-      const result=json?.chart?.result?.[0];
-      const quote=result?.indicators?.quote?.[0];
-      const closes=(quote?.close||[]).filter(Number.isFinite);
-      if(!result || closes.length<20) continue;
-      const data={closes,timestamps:result.timestamp||[],opens:quote?.open||[],highs:quote?.high||[],lows:quote?.low||[],volumes:quote?.volume||[]};
-      quoteCache.set("technical:"+key,{time:Date.now(),data});
-      return data;
-    }catch{}
-  }
-  throw new Error("Technical history unavailable for "+symbol);
+  const response=await fetch("/api/market?symbols="+encodeURIComponent(key)+"&range=1y",{cache:"no-store"});
+  if(!response.ok) throw new Error("Market history endpoint returned "+response.status);
+  const json=await response.json();
+  const q=json?.quotes?.[0];
+  if(!q || !Array.isArray(q.closes) || q.closes.length<20) throw new Error("Technical history unavailable for "+symbol);
+  const data={closes:q.closes,timestamps:q.timestamps||[],opens:q.opens||[],highs:q.highs||[],lows:q.lows||[],volumes:q.volumes||[]};
+  quoteCache.set("technical:"+key,{time:Date.now(),data});
+  return data;
 }
 const CACHE_MS=30000;
 const BATCH_CACHE_MS=30000;
