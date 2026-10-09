@@ -29,6 +29,30 @@ function savePortfolio(){localStorage.setItem(PORTFOLIO_KEY,JSON.stringify(portf
 function symbolLabel(symbol){
   return symbol.replace(/\.(NS|BO)$/,"");
 }
+function listingForTicker(stock,ticker){
+  const key=String(ticker||"").toUpperCase();
+  return (stock?.listings||[]).find(item=>String(item.yahooTicker||item.yahoo_ticker||"").toUpperCase()===key)||null;
+}
+function selectedExchange(stock,ticker){
+  const listing=listingForTicker(stock,ticker),key=String(ticker||"").toUpperCase();
+  return listing?.exchange||(/\.BO$/.test(key)?"BSE":/\.NS$/.test(key)?"NSE":stock?.exchange||"");
+}
+function selectedDisplay(stock,ticker){
+  const listing=listingForTicker(stock,ticker),key=String(ticker||"").toUpperCase();
+  if(listing?.symbol)return listing.symbol;
+  if(String(stock?.yahoo_ticker||"").toUpperCase()===key&&stock?.symbol)return stock.symbol;
+  return symbolLabel(String(ticker||""));
+}
+function selectableListings(stock){
+  const listings=(stock?.listings||[]).filter(item=>item?.status!=="inactive"&&(item.yahooTicker||item.yahoo_ticker));
+  const primaryTicker=String(stock?.yahoo_ticker||"").toUpperCase();
+  if(primaryTicker&&!listings.some(item=>String(item.yahooTicker||item.yahoo_ticker).toUpperCase()===primaryTicker)){
+    listings.unshift({exchange:stock.exchange,symbol:stock.symbol,yahooTicker:stock.yahoo_ticker,status:stock.status});
+  }
+  const unique=new Map();
+  for(const item of listings){const ticker=String(item.yahooTicker||item.yahoo_ticker||"").toUpperCase();if(ticker&&!unique.has(ticker))unique.set(ticker,{...item,yahooTicker:ticker});}
+  return [...unique.values()].sort((a,b)=>(a.exchange==="NSE"?0:1)-(b.exchange==="NSE"?0:1));
+}
 function normalizeSymbol(value){
   let v=value.trim().toUpperCase();
   if(!v) return "";
@@ -105,6 +129,9 @@ function setupNotifications(){
 function money(value){
   return Number.isFinite(value)?"₹"+value.toFixed(2):"--";
 }
+function signedMoney(value){
+  return Number.isFinite(value)?(value>=0?"+":"−")+"₹"+Math.abs(value).toFixed(2):"--";
+}
 const indexNumberFormat=new Intl.NumberFormat("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2});
 function formatIndexNumber(value){
   return Number.isFinite(value)?indexNumberFormat.format(value):"--";
@@ -124,6 +151,23 @@ function installDesignSystem(){
     input:focus,select:focus{border-color:#4f8cff!important;box-shadow:0 0 0 3px rgba(79,140,255,.12)}
     .ss-card{background:linear-gradient(180deg,rgba(18,26,51,.98),rgba(10,17,35,.98))!important;border:1px solid rgba(91,121,180,.22)!important;box-shadow:0 18px 50px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.025)}
     .ss-subcard{background:rgba(5,9,20,.62)!important;border:1px solid rgba(91,121,180,.18)!important}
+    #ss-shell{align-items:start}
+    #ss-shell>.ss-watch{align-self:start;min-width:0;max-height:calc(100vh - 148px)}
+    #ss-shell>.ss-detail{min-width:0}
+    .ss-portfolio-head,.ss-portfolio-row{display:grid;grid-template-columns:minmax(68px,1fr) 62px 56px 44px 18px;gap:4px;align-items:center}
+    .ss-portfolio-head{padding:8px 10px;font-size:8px;color:#7C8DB0;font-weight:800;border-bottom:1px solid #1e2d5a;background:#0e1429}
+    .ss-portfolio-row{padding:9px 10px;border-bottom:1px solid rgba(91,121,180,.12);cursor:pointer}
+    .ss-portfolio-row:hover{background:rgba(91,121,180,.08)}
+    .ss-portfolio-stock{min-width:0}.ss-portfolio-symbol{font-size:11px;font-weight:850;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ss-portfolio-company{font-size:8px;color:#7C8DB0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+    .ss-portfolio-number{text-align:right;font-size:9px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+    .ss-portfolio-remove{width:18px;height:22px;padding:0;background:none;border:0;color:#ff6b78;cursor:pointer;font-size:16px;line-height:1}
+    .ss-portfolio-empty{display:grid;justify-items:center;gap:5px;padding:20px 16px;text-align:center;color:#7C8DB0;font-size:9px;line-height:1.45}
+    .ss-portfolio-empty-mark{display:grid;place-items:center;width:28px;height:28px;border:1px solid rgba(0,212,255,.25);border-radius:9px;background:rgba(0,212,255,.08);color:#00d4ff;font-size:18px}
+    .ss-portfolio-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:8px 10px;border-top:1px solid #1e2d5a;background:#0e1429}
+    .ss-portfolio-summary-item{min-width:0;font-size:8px;color:#7C8DB0}.ss-portfolio-summary-item b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px;margin-top:3px}
+    .ss-search-result{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #1a274a}
+    .ss-search-result-copy{min-width:0}.ss-search-result-copy b,.ss-search-result-copy span{overflow:hidden;text-overflow:ellipsis}
+    .ss-listing-options{display:flex;gap:5px;flex:0 0 auto}.ss-listing-option{padding:5px 7px;background:#121a33;border:1px solid #263967;border-radius:7px;color:#dce8ff;font-size:8px;cursor:pointer;white-space:nowrap}.ss-listing-option:hover{border-color:#00d4ff;background:#132344}
         #newsBox a{color:#dce8ff!important;text-decoration:none}
     #newsBox a:hover{text-decoration:underline}
      .ss-kicker{letter-spacing:.12em;text-transform:uppercase;font-size:9px;color:#7890b8;font-weight:800}
@@ -175,9 +219,9 @@ function installDesignSystem(){
     .ss-notification-message{font-size:10px;line-height:1.55;color:#dce8ff}
     .ss-notification-meta{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:7px;color:#7C8DB0;font-size:8px}
     @media(max-width:820px){.ss-analysis{grid-template-columns:1fr}.ss-breakdown{grid-template-columns:repeat(3,1fr)}.ss-tech-grid{grid-template-columns:repeat(2,1fr)!important}} @media(max-width:520px){.ss-tech-grid{grid-template-columns:1fr!important}}
-    @media(max-width:1080px){#ss-shell{grid-template-columns:270px 1fr!important}#ss-right-panel{display:none!important}}
-    @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{min-height:0!important;max-height:none}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
-    @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}}
+    @media(max-width:1080px){#ss-shell{grid-template-columns:minmax(270px,31vw) minmax(0,1fr)!important}#ss-right-panel{display:none!important}}
+    @media(max-width:820px){#ss-header{position:relative!important;padding:12px!important}#ss-header>div{max-width:none!important}#ss-shell{display:flex!important;flex-direction:column!important;padding:8px!important}.ss-watch{width:100%;min-height:0!important;max-height:none!important}.ss-portfolio-list{max-height:min(360px,55vh)!important}.ss-detail{width:100%}#stockPrice{font-size:28px!important}.ss-metrics{grid-template-columns:repeat(2,1fr)!important}.ss-fund{grid-template-columns:1fr!important}#searchAll{min-width:0!important}}
+    @media(max-width:520px){#ss-header-actions{width:100%;justify-content:flex-start!important}.ss-metrics{grid-template-columns:1fr 1fr!important}.ss-portfolio-head,.ss-portfolio-row{grid-template-columns:minmax(56px,1fr) 58px 52px 40px 18px;gap:3px;padding-left:8px;padding-right:8px}.ss-listing-options{flex-wrap:wrap;justify-content:flex-end}.ss-search-result{align-items:flex-start}}
   `; document.head.appendChild(style);
 }
 
@@ -195,13 +239,13 @@ function ensureUI(){
       <button id="tabMarket" type="button" style="padding:9px 18px;border-radius:10px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:11px;font-weight:850;cursor:pointer">Market Overview</button>
     </div>
     <div id="ss-dashboard-view">
-    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 130px)">
-      <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
+    <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;padding:16px;min-height:calc(100vh - 130px)">
+      <div class="ss-card ss-watch" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:850">My Portfolio</div><div id="portfolioCount" style="font-size:9px;color:#7C8DB0">0 / 30 stocks tracked</div></div></div></div>
-        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Search symbol to add" style="flex:1;padding:8px 12px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:11px;outline:none"/><button id="portfolioSearchBtn" style="padding:8px 12px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:11px">+ Add</button></div><div style="font-size:9px;color:#7C8DB0;margin-top:6px">Add up to 30 NSE/BSE stocks.</div></div>
-        <div style="display:grid;grid-template-columns:1fr 68px 70px 58px 24px;gap:8px;padding:8px 14px;font-size:9px;color:#7C8DB0;font-weight:700;border-bottom:1px solid #1e2d5a;background:#0e1429"><span>Stocks</span><span style="text-align:right">LTP</span><span style="text-align:right">Price Chg</span><span style="text-align:right">% Chg</span><span></span></div>
-        <div id="portfolioList" style="flex:1;overflow:auto;min-height:220px;max-height:420px;padding:4px 0"></div>
-        <div style="padding:10px 14px;border-top:1px solid #1e2d5a;display:flex;justify-content:space-between;font-size:10px;background:#0e1429"><div>Top Gainer: <b id="portfolioTopGainer" style="color:#00ff88">--</b></div><div>Loser: <b id="portfolioTopLoser" style="color:#ff4444">--</b></div></div>
+        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Ticker, company, or BSE code" style="min-width:0;flex:1;padding:8px 10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:10px;outline:none"/><button id="portfolioSearchBtn" style="flex:0 0 auto;padding:8px 10px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:10px">+ Add</button></div><div style="font-size:8px;color:#7C8DB0;margin-top:6px">Add NSE/BSE listings separately (example: SBIN.NS or 500112.BO).</div></div>
+        <div class="ss-portfolio-head"><span>Stock</span><span style="text-align:right">LTP</span><span style="text-align:right">Δ Price</span><span style="text-align:right">Δ %</span><span></span></div>
+        <div id="portfolioList" class="ss-portfolio-list" style="flex:1 1 auto;overflow:auto;min-height:104px;max-height:min(420px,calc(100vh - 390px));padding:0"></div>
+        <div class="ss-portfolio-summary"><div class="ss-portfolio-summary-item">Top gainer<b id="portfolioTopGainer" style="color:#00ff88">--</b></div><div class="ss-portfolio-summary-item">Top loser<b id="portfolioTopLoser" style="color:#ff4444">--</b></div></div>
       </div>
       <div class="ss-detail" style="display:flex;flex-direction:column;gap:12px">
         <div class="ss-card" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;padding:16px">
@@ -287,13 +331,20 @@ async function renderPortfolio(){
       for(const alias of aliases.filter(Boolean))STOCK_META.set(alias.toUpperCase(),stock);
     }
   }catch(error){console.warn("[StockSense] portfolio catalog",error);}
-  const list=portfolio.map(symbol=>({symbol,display:symbolLabel(symbol),name:STOCK_META.get(symbol)?.company||symbolLabel(symbol),exchange:STOCK_META.get(symbol)?.exchange||""}));
+  const list=portfolio.map(symbol=>{
+    const stock=STOCK_META.get(symbol);
+    return {symbol,display:selectedDisplay(stock,symbol),name:stock?.company||selectedDisplay(stock,symbol),exchange:selectedExchange(stock,symbol)};
+  });
   setText("portfolioCount",list.length+" / "+PORTFOLIO_MAX+" stocks tracked");
   const box=document.getElementById("portfolioList"); if(!box)return;
-  if(!list.length){box.innerHTML="<div style='padding:22px 14px;text-align:center;color:#7C8DB0;font-size:11px'></div>";setText("portfolioTopGainer","--");setText("portfolioTopLoser","--");return;}
+  if(!list.length){box.innerHTML="<div class='ss-portfolio-empty'><span class='ss-portfolio-empty-mark'>+</span><b style='color:#dce8ff'>Your portfolio is empty</b><span>Search above to add a stock. NSE and BSE listings can be tracked separately.</span></div>";setText("portfolioTopGainer","--");setText("portfolioTopLoser","--");return;}
   const quotes=await getQuotesBatch(list.map(s=>s.symbol));
   const live=list.map(s=>{const q=quotes.get(String(s.symbol).toUpperCase());return q?{...s,...q}:{...s,price:null,change:null,changePct:null};});
-  box.innerHTML=live.map(s=>`<div data-row style="display:grid;grid-template-columns:1fr 68px 70px 58px 24px;gap:8px;align-items:center;padding:9px 14px;border-bottom:1px solid rgba(91,121,180,.12);cursor:pointer"><div><div style="font-size:11px;font-weight:800">${escapeHtml(s.display)}</div><div style="font-size:8px;color:#7C8DB0">${escapeHtml(s.name||"")}</div></div><div style="text-align:right;font-size:10px;font-weight:800">${money(s.price)}</div><div style="text-align:right;font-size:10px;font-weight:800;color:${s.change>=0?"#00ff88":"#ff4444"}">${money(s.change)}</div><div style="text-align:right;font-size:10px;font-weight:800;color:${s.changePct>=0?"#00ff88":"#ff4444"}">${percent(s.changePct)}</div><button type="button" data-remove="${escapeHtml(s.symbol)}" aria-label="Remove ${escapeHtml(s.display)}" style="background:none;border:0;color:#ff4444;cursor:pointer;font-size:16px">×</button></div>`).join("");
+  box.innerHTML=live.map(s=>{
+    const changeColor=Number.isFinite(s.change)?(s.change>=0?"#00ff88":"#ff6b78"):"#7C8DB0";
+    const percentColor=Number.isFinite(s.changePct)?(s.changePct>=0?"#00ff88":"#ff6b78"):"#7C8DB0";
+    return `<div data-row class="ss-portfolio-row" title="View ${escapeHtml(s.display)} on ${escapeHtml(s.exchange)}"><div class="ss-portfolio-stock"><div class="ss-portfolio-symbol">${escapeHtml(s.display)}</div><div class="ss-portfolio-company">${escapeHtml(s.name||"")} · ${escapeHtml(s.exchange)}</div></div><div class="ss-portfolio-number">${money(s.price)}</div><div class="ss-portfolio-number" style="color:${changeColor}">${signedMoney(s.change)}</div><div class="ss-portfolio-number" style="color:${percentColor}">${percent(s.changePct)}</div><button type="button" class="ss-portfolio-remove" data-remove="${escapeHtml(s.symbol)}" aria-label="Remove ${escapeHtml(s.display)}">×</button></div>`;
+  }).join("");
   box.querySelectorAll("[data-row]").forEach(row=>row.onclick=()=>loadStockGlobal(row.querySelector("[data-remove]")?.dataset.remove||""));
   box.querySelectorAll("[data-remove]").forEach(btn=>btn.onclick=e=>{e.stopPropagation();removeFromPortfolio(btn.dataset.remove);});
   const valid=live.filter(x=>Number.isFinite(x.changePct));
@@ -313,9 +364,13 @@ async function addPortfolioSearchValue(value){
   try{
     const matches=await searchSymbols(query);
     const needle=query.toUpperCase();
-    const chosen=matches.find(stock=>[stock.symbol,stock.display,stock.isin].some(value=>String(value||"").toUpperCase()===needle))||matches[0];
+    const chosen=matches.find(stock=>[stock.symbol,stock.display,stock.isin,...(stock.listings||[]).flatMap(item=>[item.yahooTicker,item.symbol,item.scripCode])].some(value=>String(value||"").toUpperCase()===needle))||matches[0];
     if(!chosen){alert("No active NSE or BSE listing matched that search.");return;}
-    addToPortfolio(chosen.symbol);
+    const listings=selectableListings(chosen);
+    const selected=listings.find(item=>[item.yahooTicker,item.symbol,item.scripCode].some(value=>String(value||"").toUpperCase()===needle))
+      ||listings.find(item=>item.yahooTicker===String(chosen.yahoo_ticker||chosen.symbol||"").toUpperCase())
+      ||listings[0];
+    addToPortfolio(selected?.yahooTicker||chosen.yahoo_ticker||chosen.symbol);
     const input=document.getElementById("portfolioSearch");if(input)input.value="";
   }catch(error){alert("The stock catalog is temporarily unavailable. Please try again.");console.warn("[StockSense] portfolio search",error);}
   finally{if(button)button.disabled=false;}
@@ -327,7 +382,15 @@ function setupSearch(){
     const q=input.value.trim();clearTimeout(timer);const my=++seq;
     if(!q){results.style.display="none";return;}
     results.style.display="block";results.innerHTML="<div style='padding:12px;color:#7C8DB0;font-size:11px'>Searching the NSE and BSE stock catalog…</div>";
-    const draw=matches=>{results.innerHTML=matches.length?matches.map(stock=>`<div data-s="${escapeHtml(stock.symbol)}" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #1a274a;display:flex;justify-content:space-between;gap:10px"><span><b>${escapeHtml(stock.display)}</b><span style="display:block;color:#7C8DB0;font-size:9px;margin-top:2px">${escapeHtml(stock.name)}</span></span><span style="color:#00d4ff;font-size:10px;white-space:nowrap">${escapeHtml(stock.exchange)} · ${escapeHtml(stock.symbol)}</span></div>`).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching active NSE/BSE stock found.</div>";results.style.display="block";results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});};
+    const draw=matches=>{results.innerHTML=matches.length?matches.map(stock=>{
+      const listings=selectableListings(stock);
+      const choices=listings.map(item=>{
+        const ticker=item.yahooTicker||item.yahoo_ticker;
+        const label=item.symbol||item.scripCode||symbolLabel(ticker);
+        return `<button type="button" class="ss-listing-option" data-s="${escapeHtml(ticker)}" aria-label="Open ${escapeHtml(stock.name)} on ${escapeHtml(item.exchange)}">${escapeHtml(item.exchange)} · ${escapeHtml(label)}</button>`;
+      }).join("");
+      return `<div class="ss-search-result"><div class="ss-search-result-copy"><b>${escapeHtml(stock.display)}</b><span style="display:block;color:#7C8DB0;font-size:9px;margin-top:2px">${escapeHtml(stock.name)}</span></div><div class="ss-listing-options">${choices}</div></div>`;
+    }).join(""):"<div style='padding:12px;color:#7C8DB0;font-size:11px'>No matching active NSE/BSE stock found.</div>";results.style.display="block";results.querySelectorAll("[data-s]").forEach(x=>x.onclick=()=>{loadStockGlobal(x.dataset.s);results.style.display="none";input.value="";});};
     timer=setTimeout(async()=>{try{const matches=await searchSymbols(q);if(my!==seq)return;draw(matches);}catch(error){if(my!==seq)return;results.innerHTML="<div style='padding:12px;color:#ffcc66;font-size:11px'>Stock catalog is temporarily unavailable. Please retry.</div>";console.warn("[StockSense] catalog search",error);}},180);
   });
   const pInput=document.getElementById("portfolioSearch"),pBtn=document.getElementById("portfolioSearchBtn");
@@ -475,7 +538,7 @@ async function loadStock(symbol){
     quoteLoaded=true;
     const historySource=savedQuote&&savedQuote.closes.length>(liveResult.data?.closes?.length||0)?savedQuote:liveResult.data||savedQuote;
     data={...historySource,...data,closes:historySource?.closes||data.closes||[],timestamps:historySource?.timestamps||data.timestamps||[],opens:historySource?.opens||data.opens||[],highs:historySource?.highs||data.highs||[],lows:historySource?.lows||data.lows||[],volumes:historySource?.volumes||data.volumes||[],symbol:currentSymbol};
-    document.getElementById("stockName").textContent=`${stockRecord.company} • ${stockRecord.exchange}${stockRecord.exchange==="NSE"&&stockRecord.listings?.some(item=>item.exchange==="BSE")?" + BSE":""} • ${new Date().toLocaleTimeString("en-IN")}`;
+    document.getElementById("stockName").textContent=`${stockRecord.company} • ${selectedExchange(stockRecord,currentSymbol)} • ${new Date().toLocaleTimeString("en-IN")}`;
     setText("stockPrice",money(data.price));
     const change=document.getElementById("change");
     const absoluteChange=Number.isFinite(data.change)?(data.change>=0?"+":"−")+money(Math.abs(data.change)):Number.isFinite(data.price)&&Number.isFinite(data.prev)?(data.price>=data.prev?"+":"−")+money(Math.abs(data.price-data.prev)):"N/A";
@@ -681,4 +744,5 @@ async function init(){
   setInterval(updateMarketStatus,60_000);
 }
 init();
+
 

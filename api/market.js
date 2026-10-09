@@ -211,7 +211,7 @@ export default async function handler(req, res) {
   }
 
   const symbols = [...new Set(raw.split(",").map((symbol) => symbol.trim().toUpperCase())
-    .filter((symbol) => /^[A-Z0-9^=_-]+\.(NS|BO)$/.test(symbol) || /^[A-Z0-9^=_-]+$/.test(symbol)))].slice(0, 30);
+    .filter((symbol) => /^[A-Z0-9^=_-]+\.(NS|BO|SS)$/.test(symbol) || /^[A-Z0-9^=_-]+$/.test(symbol)))].slice(0, 30);
   if (!symbols.length) return res.status(400).json({ error: "No valid symbols" });
 
   const quotesBySymbol = await yahooBatch(symbols, range);
@@ -240,4 +240,5 @@ export default async function handler(req, res) {
   }
   return res.status(200).json({ quotes, unavailableSymbols });
 }
+
 
