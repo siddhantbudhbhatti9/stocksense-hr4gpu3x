@@ -1,4 +1,4 @@
-import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getNews, getAISignal, getMarketCap, formatCompactNumber, searchSymbols, calcRSI, calcSMA, getStockCatalogPage, getStocksBySymbols, getCatalogStock, getSavedStockData, getCatalogNotifications } from "./utils/api.js";
+import { getQuote, getQuotesBatch, getFastQuote, getTechnicalData, getNews, getAISignal, getMarketCap, formatCompactNumber, searchSymbols, calcRSI, calcSMA, getStocksBySymbols, getCatalogStock, getSavedStockData, getCatalogNotifications } from "./utils/api.js";
 
 let STOCK_META=new Map();
 const PORTFOLIO_KEY="ss_portfolio";
@@ -6,8 +6,6 @@ const PORTFOLIO_MAX=30;
 const NOTIFICATION_STATE_KEY="ss_notifications_v1";
 const notificationState={read:new Set(),cleared:new Set()};
 let appNotifications=[];
-let screenerPage=0;
-let screenerType="BUY";
 let portfolio=[];
 let currentSymbol="SBIN.NS";
 let stockRequestId=0;
@@ -300,7 +298,6 @@ function ensureUI(){
               <div class="ss-trend-row"><span class="ss-trend-name">Trend Strength</span><b id="trendStrengthValue" class="ss-trend-value">--</b></div>
             </div>
           </div>
-          <div id="screenerBox" style="margin-top:10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:12px;padding:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-size:11px;font-weight:700">Stock Screener <span id="screenerPageLabel" style="font-size:9px;color:#7C8DB0"></span></div><div style="display:flex;gap:6px"><button id="screenerBuy" type="button" style="padding:6px 9px;border-radius:7px;border:1px solid #1e2d5a;background:#142747;color:#9fb0cf;font-size:9px;cursor:pointer">RSI &lt;45</button><button id="screenerDeep" type="button" style="padding:6px 9px;border-radius:7px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:9px;cursor:pointer">RSI &lt;35</button><button id="screenerPrev" type="button" style="padding:6px 9px;border-radius:7px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:9px;cursor:pointer">Previous 30</button><button id="screenerNext" type="button" style="padding:6px 9px;border-radius:7px;border:1px solid #1e2d5a;background:#121a33;color:#9fb0cf;font-size:9px;cursor:pointer">Next 30</button></div></div><div id="screenerResults" style="max-height:240px;overflow:auto;margin-top:8px">Choose a scan to load live data from the stock catalog.</div></div>
         </div>
       </div>
     </div>
@@ -689,38 +686,6 @@ async function loadIndices(){
     console.warn("[StockSense] indices",error);
   }
 }
-function calcRSIForScreen(c){
-  if(!Array.isArray(c)||c.length<15)return null;
-  let g=0,l=0;
-  for(let i=c.length-14;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)g+=d;else l-=d;}
-  return l===0?100:100-(100/(1+g/l));
-}
-async function runScreener(type){
-  const box=document.getElementById("screenerBox"),res=document.getElementById("screenerResults");
-  box.style.display="block";res.textContent="Scanning live Yahoo Finance data from the stock catalog…";
-  screenerType=type;
-  try{
-    const page=await getStockCatalogPage(screenerPage*30,30);
-    const eligible=page.items.filter(stock=>stock.status==="active"&&stock.data_ready&&stock.yahoo_ticker);
-    const quotes=await getQuotesBatch(eligible.map(stock=>stock.yahoo_ticker));
-    const threshold=type==="STRONG_BUY"?35:45;
-    const filtered=eligible.map(stock=>{
-      const quote=quotes.get(stock.yahoo_ticker.toUpperCase());
-      const rsi=calcRSIForScreen(quote?.closes);
-      return quote&&Number.isFinite(rsi)?{stock,quote,rsi}:null;
-    }).filter(item=>item&&item.rsi<threshold).sort((a,b)=>a.rsi-b.rsi);
-    const first=screenerPage*30+1,last=screenerPage*30+page.items.length;
-    setText("screenerPageLabel",page.total?`${first}–${last} of ${page.total} catalog entries`:"Catalog unavailable");
-    document.getElementById("screenerPrev").disabled=screenerPage===0;
-    document.getElementById("screenerNext").disabled=!page.hasMore;
-    const rows=filtered.map(({stock,quote,rsi})=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:8px;background:#0e1429;margin:4px 0;border-radius:6px;cursor:pointer" data-screen="'+escapeHtml(stock.yahoo_ticker)+'"><span><b>'+escapeHtml(stock.symbol)+'</b> · '+escapeHtml(stock.exchange)+' · RSI '+rsi.toFixed(1)+'</span><span style="color:'+(quote.changePct>=0?"#00ff88":"#ff4444")+'">'+money(quote.price)+' '+percent(quote.changePct)+'</span></div>').join("");
-    res.innerHTML='<div style="color:#00ff88;font-size:11px">'+filtered.length+' FOUND · RSI BELOW '+threshold+'</div>'+(rows||'<div style="padding:9px;color:#7C8DB0;font-size:10px">No matching stocks in this catalog page. Move to another page to continue.</div>');
-    res.querySelectorAll("[data-screen]").forEach(x=>x.onclick=()=>loadStockGlobal(x.dataset.screen));
-  }catch(error){
-    res.textContent="Screener data is temporarily unavailable. Please try again shortly.";
-    console.warn("[StockSense] screener",error);
-  }
-}
 function loadStockGlobal(symbol){
   loadStock(symbol);
   const results=document.getElementById("searchResults");
@@ -732,10 +697,6 @@ async function init(){
   setupSearch();
   setupPortfolio();
   setupNotifications();
-  document.getElementById("screenerBuy").onclick=()=>{screenerPage=0;runScreener("BUY");};
-  document.getElementById("screenerDeep").onclick=()=>{screenerPage=0;runScreener("STRONG_BUY");};
-  document.getElementById("screenerPrev").onclick=()=>{if(screenerPage>0){screenerPage--;runScreener(screenerType);}};
-  document.getElementById("screenerNext").onclick=()=>{screenerPage++;runScreener(screenerType);};
   loadPortfolio();
   loadStock(currentSymbol);
   const setTab=(tab)=>{const dash=document.getElementById("ss-dashboard-view"),market=document.getElementById("ss-market-view"),d=document.getElementById("tabDashboard"),m=document.getElementById("tabMarket");const isMarket=tab==="market";dash.style.display=isMarket?"none":"";market.style.display=isMarket?"":"none";d.style.background=isMarket?"#121a33":"#00d4ff";d.style.color=isMarket?"#9fb0cf":"#06101f";m.style.background=isMarket?"#00d4ff":"#121a33";m.style.color=isMarket?"#06101f":"#9fb0cf";if(isMarket){loadGlobalMarket();loadGeneralMarketNews();}};
