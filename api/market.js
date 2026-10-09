@@ -127,14 +127,14 @@ async function yahoo(symbol, range) {
       const json = await getJson(url, YAHOO_TIMEOUT_MS);
       const result = json?.chart?.result?.[0];
       const bars = chartBars(result);
-      if (bars.length < 2) throw new Error("Yahoo returned insufficient history");
       const meta = result.meta || {};
+      if (!bars.length) throw new Error("Yahoo returned no price data");
       const latest = bars[bars.length - 1];
       const previous = bars[bars.length - 2];
       const price = Number.isFinite(meta.regularMarketPrice) ? meta.regularMarketPrice : latest.close;
-      // chartPreviousClose can refer to the beginning of the requested range
-      // (for example, one year ago), not the previous trading session.
-      const prev = previous.close;
+      // Prefer the prior daily candle; Yahoo's chartPreviousClose supplies the
+      // prior close when a BSE ticker has only the current candle available.
+      const prev = previous?.close ?? meta.chartPreviousClose ?? meta.regularMarketPreviousClose;
       if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(prev) || prev <= 0) {
         throw new Error("Yahoo returned an invalid quote");
       }
@@ -240,5 +240,4 @@ export default async function handler(req, res) {
   }
   return res.status(200).json({ quotes, unavailableSymbols });
 }
-
 
