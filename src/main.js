@@ -486,8 +486,8 @@ function enoughSignalHistory(tech,closes){
   return closes.length>=200&&[tech.rsi,tech.sma20,tech.sma50,tech.sma200,tech.ema20,tech.ema50,tech.macd,tech.macdSignal,tech.stoch,tech.bbPos,tech.volumeRatio].every(Number.isFinite);
 }
 function historyValue(value,required,format,historyLength){
-  if(Number.isFinite(value))return format(value);
-  return historyLength<required?"Not enough history yet":"N/A";
+  if(historyLength<required)return "Not enough history yet";
+  return Number.isFinite(value)?format(value):"N/A";
 }
 function setNewListingNotice(record,notice){
   const banner=document.getElementById("stockDataNotice");if(!banner)return;
