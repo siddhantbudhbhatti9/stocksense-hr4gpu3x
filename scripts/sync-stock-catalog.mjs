@@ -114,7 +114,7 @@ function normalizeBse(text) {
       exchange: "BSE",
       symbol,
       scripCode,
-      yahooTicker: `${scripCode}.BO`,
+      yahooTicker: `${symbol}.BO`,
       isin,
       company,
       series: normalized(row.GROUP) || null,
@@ -136,7 +136,10 @@ function validateFeedSize(exchange, records, previous) {
 }
 
 function keyFor(record) { return record.isin || `${record.exchange}:${record.symbol}`; }
-function listingKey(record) { return `${record.exchange}:${record.yahooTicker}:${record.series || ""}`; }
+function listingKey(record) {
+  const identity = record.exchange === "BSE" ? (record.scripCode || record.symbol) : record.yahooTicker;
+  return `${record.exchange}:${identity}:${record.series || ""}`;
+}
 function noticeId(kind, stock) { return createHash("sha1").update(`${kind}|${stock.id}`).digest("hex").slice(0, 16); }
 function createNotice(kind, stock, message, missingData = []) {
   return {

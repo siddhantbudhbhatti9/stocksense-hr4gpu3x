@@ -53,7 +53,7 @@ export function normalizeBse(text) {
     const isin = normalized(row.ISIN_NUMBER), scripCode = String(row.SCRIP_CD || "").trim();
     const symbol = normalized(row.scrip_id || scripCode), company = String(row.Issuer_Name || row.Scrip_Name || "").trim();
     if (!validIsin(isin) || !scripCode || !symbol || !company) return [];
-    return [{ exchange: "BSE", symbol, scripCode, yahooTicker: `${scripCode}.BO`, isin, company, series: normalized(row.GROUP) || null, listingDate: null, status: normalized(row.Status) === "ACTIVE" ? "active" : "inactive" }];
+    return [{ exchange: "BSE", symbol, scripCode, yahooTicker: `${symbol}.BO`, isin, company, series: normalized(row.GROUP) || null, listingDate: null, status: normalized(row.Status) === "ACTIVE" ? "active" : "inactive" }];
   });
   if (records.length < 1000) throw new Error(`BSE source validation failed: only ${records.length} rows`);
   return records;
@@ -62,7 +62,8 @@ export function normalizeBse(text) {
 function uniqueListings(records) {
   const byKey = new Map();
   for (const item of records) {
-    const key = `${item.exchange}|${item.yahooTicker}|${item.series || ""}`;
+    const identity = item.exchange === "BSE" ? (item.scripCode || item.symbol) : item.yahooTicker;
+    const key = `${item.exchange}|${identity}|${item.series || ""}`;
     if (!byKey.has(key)) byKey.set(key, item);
   }
   return [...byKey.values()];

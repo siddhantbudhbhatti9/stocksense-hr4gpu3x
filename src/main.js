@@ -242,7 +242,7 @@ function ensureUI(){
     <div id="ss-shell" style="max-width:1450px;margin:0 auto;display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;padding:16px;min-height:calc(100vh - 130px)">
       <div class="ss-card ss-watch" style="background:#121a33;border:1px solid #1e2d5a;border-radius:12px;display:flex;flex-direction:column;overflow:hidden">
         <div style="padding:14px;border-bottom:1px solid #1e2d5a"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:850">My Portfolio</div><div id="portfolioCount" style="font-size:9px;color:#7C8DB0">0 / 30 stocks tracked</div></div></div></div>
-        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Ticker, company, or BSE code" style="min-width:0;flex:1;padding:8px 10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:10px;outline:none"/><button id="portfolioSearchBtn" style="flex:0 0 auto;padding:8px 10px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:10px">+ Add</button></div><div style="font-size:8px;color:#7C8DB0;margin-top:6px">Add NSE/BSE listings separately (example: SBIN.NS or 500112.BO).</div></div>
+        <div style="padding:10px 12px;background:#0e1429;border-bottom:1px solid #1e2d5a"><div style="display:flex;gap:6px"><input id="portfolioSearch" placeholder="Ticker, company, or BSE code" style="min-width:0;flex:1;padding:8px 10px;background:#070d2b;border:1px solid #1e2d5a;border-radius:8px;color:white;font-size:10px;outline:none"/><button id="portfolioSearchBtn" style="flex:0 0 auto;padding:8px 10px;background:#00d4ff;color:#070d2b;border:none;border-radius:8px;font-weight:700;font-size:10px">+ Add</button></div><div style="font-size:8px;color:#7C8DB0;margin-top:6px">Add NSE/BSE listings separately (example: SBIN.NS or SBIN.BO).</div></div>
         <div class="ss-portfolio-head"><span>Stock</span><span style="text-align:right">LTP</span><span style="text-align:right">Δ Price</span><span style="text-align:right">Δ %</span><span></span></div>
         <div id="portfolioList" class="ss-portfolio-list" style="flex:1 1 auto;overflow:auto;min-height:104px;max-height:min(420px,calc(100vh - 390px));padding:0"></div>
         <div class="ss-portfolio-summary"><div class="ss-portfolio-summary-item">Top gainer<b id="portfolioTopGainer" style="color:#00ff88">--</b></div><div class="ss-portfolio-summary-item">Top loser<b id="portfolioTopLoser" style="color:#ff4444">--</b></div></div>
@@ -474,6 +474,8 @@ function loadMarketCap(symbol,requestId,savedValue=null,wait=false){
 }
 function stockToday(){return new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Kolkata",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());}
 function savedSnapshotQuote(snapshot,symbol){
+  const snapshotTicker=String(snapshot?.ticker||"").toUpperCase();
+  if(snapshotTicker&&snapshotTicker!==String(symbol||"").toUpperCase())return null;
   const bars=Array.isArray(snapshot?.bars)?snapshot.bars:[];
   if(bars.length<2)return null;
   const quote=snapshot.quote||{},last=bars[bars.length-1],previous=bars[bars.length-2];
@@ -744,5 +746,4 @@ async function init(){
   setInterval(updateMarketStatus,60_000);
 }
 init();
-
 
